@@ -1,0 +1,4 @@
+#ifndef SWIFT_RUNTIME_PORTABILITY_H
+#define SWIFT_RUNTIME_PORTABILITY_H
+// Minimal stub
+#endif

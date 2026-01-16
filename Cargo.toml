@@ -1,0 +1,46 @@
+[package]
+name = "swift-demangler"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.91.1"
+description = "Demangle Swift symbol names into structured types for analysis"
+license = "Apache-2.0"
+repository = "https://github.com/vector35/swift-demangler"
+homepage = "https://github.com/vector35/swift-demangler"
+categories = ["development-tools::debugging", "development-tools::ffi"]
+keywords = ["swift", "demangle", "demangling", "symbols"]
+links = "swift_demangle"
+include = [
+    "src/**/*.rs",
+    "build.rs",
+    "swift-demangling/CMakeLists.txt",
+    "swift-demangling/src/**",
+    "swift-demangling/include/**",
+    "swift-demangling/vendor/lib/**",
+    "swift-demangling/vendor/include/**",
+    "swift-demangling/vendor/LICENSE-*.txt",
+    "LICENSE*",
+    "README.md",
+]
+
+[lib]
+name = "swift_demangler"
+
+[features]
+default = ["bundled"]
+bundled = ["dep:cmake"]
+cli = ["dep:clap"]
+
+[build-dependencies]
+cmake = { version = "0.1", optional = true }
+
+[dependencies]
+clap = { version = "4", features = ["derive"], optional = true }
+
+[[bin]]
+name = "swift-demangler"
+path = "src/bin/swift-demangler.rs"
+required-features = ["cli"]
+
+[dev-dependencies]
+insta = "1.46"
