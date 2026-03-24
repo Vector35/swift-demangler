@@ -1,5 +1,9 @@
 # swift-demangler
 
+[![CI](https://github.com/vector35/swift-demangler/actions/workflows/build-and-test.yml/badge.svg)](https://github.com/vector35/swift-demangler/actions/workflows/build-and-test.yml)
+[![crates.io](https://img.shields.io/crates/v/swift-demangler.svg)](https://crates.io/crates/swift-demangler)
+[![docs.rs](https://docs.rs/swift-demangler/badge.svg)](https://docs.rs/swift-demangler)
+
 Idiomatic Rust bindings for Swift symbol demangling.
 
 This crate wraps a vendored copy of the Swift runtime's demangling code, providing safe, ergonomic Rust APIs for:
@@ -10,11 +14,10 @@ This crate wraps a vendored copy of the Swift runtime's demangling code, providi
 
 ## Usage
 
-Add to your `Cargo.toml`:
+Add to your project:
 
-```toml
-[dependencies]
-swift-demangler = "0.1"
+```bash
+cargo add swift-demangler
 ```
 
 ### Simple Demangling
