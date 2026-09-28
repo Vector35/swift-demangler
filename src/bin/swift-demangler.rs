@@ -4,7 +4,23 @@ use swift_demangler::{
     FunctionType, HasExtensionContext, HasFunctionSignature, HasGenericSignature, HasModule, Symbol,
 };
 
-fn print_signature(sig: &FunctionType, labels: &[Option<&str>], indent: &str) {
+/// Indentation of `2 * self.0` spaces.
+#[derive(Clone, Copy)]
+struct Indent(usize);
+
+impl Indent {
+    fn deeper(self) -> Self {
+        Indent(self.0 + 1)
+    }
+}
+
+impl std::fmt::Display for Indent {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:1$}", "", 2 * self.0)
+    }
+}
+
+fn print_signature(sig: &FunctionType, labels: &[Option<&str>], indent: Indent) {
     let params = sig.parameters();
     println!("{indent}Parameters: {}", params.len());
     for (i, param) in params.iter().enumerate() {
@@ -25,8 +41,16 @@ fn print_signature(sig: &FunctionType, labels: &[Option<&str>], indent: &str) {
     }
 }
 
-fn print_symbol(symbol: &Symbol, indent: &str) {
-    let inner_indent = format!("{indent}  ");
+/// How deeply to print nested symbols, such as stacked specializations. Each
+/// level is indented further, so output grows quadratically with nesting.
+const MAX_PRINT_NESTING: usize = 64;
+
+fn print_symbol(symbol: &Symbol, nesting: usize) {
+    let indent = Indent(nesting + 1);
+    if nesting > MAX_PRINT_NESTING {
+        println!("{indent}...");
+        return;
+    }
     match symbol {
         Symbol::Function(func) => {
             println!("{indent}Type: Function");
@@ -238,7 +262,7 @@ fn print_symbol(symbol: &Symbol, indent: &str) {
                     }
                     if let Some(inner) = t.inner() {
                         println!("{indent}Inner Symbol:");
-                        print_symbol(&inner, &inner_indent);
+                        print_symbol(&inner, nesting + 1);
                     }
                 }
                 swift_demangler::Thunk::AutoDiff(t) => {
@@ -259,7 +283,7 @@ fn print_symbol(symbol: &Symbol, indent: &str) {
                 swift_demangler::Thunk::Dispatch { inner, kind, .. } => {
                     println!("{indent}Dispatch Kind: {:?}", kind);
                     println!("{indent}Inner Symbol:");
-                    print_symbol(inner, &inner_indent);
+                    print_symbol(inner, nesting + 1);
                 }
                 swift_demangler::Thunk::PartialApply { inner, is_objc, .. } => {
                     if *is_objc {
@@ -267,14 +291,14 @@ fn print_symbol(symbol: &Symbol, indent: &str) {
                     }
                     if let Some(inner) = inner {
                         println!("{indent}Inner Symbol:");
-                        print_symbol(inner, &inner_indent);
+                        print_symbol(inner, nesting + 1);
                     }
                 }
                 swift_demangler::Thunk::Other { kind, inner, .. } => {
                     println!("{indent}Other Kind: {:?}", kind);
                     if let Some(inner) = inner {
                         println!("{indent}Inner Symbol:");
-                        print_symbol(inner, &inner_indent);
+                        print_symbol(inner, nesting + 1);
                     }
                 }
             }
@@ -313,7 +337,7 @@ fn print_symbol(symbol: &Symbol, indent: &str) {
                 }
             }
             println!("{indent}Inner Symbol:");
-            print_symbol(&spec.inner, &inner_indent);
+            print_symbol(&spec.inner, nesting + 1);
         }
         Symbol::WitnessTable(wt) => {
             println!("{indent}Type: WitnessTable");
@@ -379,7 +403,7 @@ fn print_symbol(symbol: &Symbol, indent: &str) {
                     }
                 }
                 if let Some(sig) = func.signature() {
-                    print_signature(&sig, &func.labels(), &format!("{indent}  "));
+                    print_signature(&sig, &func.labels(), indent.deeper());
                 }
                 if let Some(module) = func.module() {
                     println!("{indent}  Module: {}", module);
@@ -401,7 +425,7 @@ fn print_symbol(symbol: &Symbol, indent: &str) {
             }
             if let Some(inner) = meta.inner() {
                 println!("{indent}Inner:");
-                print_symbol(inner, &inner_indent);
+                print_symbol(inner, nesting + 1);
             }
             if meta.is_accessor() {
                 println!("{indent}Is Accessor: true");
@@ -414,7 +438,7 @@ fn print_symbol(symbol: &Symbol, indent: &str) {
             println!("{indent}Type: Attributed");
             println!("{indent}Attribute: {}", attr.attribute.name());
             println!("{indent}Inner Symbol:");
-            print_symbol(&attr.inner, &inner_indent);
+            print_symbol(&attr.inner, nesting + 1);
         }
         Symbol::DefaultArgument(default_arg) => {
             println!("{indent}Type: DefaultArgument");
@@ -441,7 +465,7 @@ fn print_symbol(symbol: &Symbol, indent: &str) {
                 println!("{indent}Module: {}", module);
             }
             println!("{indent}Context:");
-            print_symbol(&outlined_sym.context, &inner_indent);
+            print_symbol(&outlined_sym.context, nesting + 1);
         }
         Symbol::Async(async_sym) => {
             println!("{indent}Type: Async");
@@ -451,7 +475,7 @@ fn print_symbol(symbol: &Symbol, indent: &str) {
             }
             if let Some(inner) = async_sym.inner() {
                 println!("{indent}Inner:");
-                print_symbol(inner, &inner_indent);
+                print_symbol(inner, nesting + 1);
             }
         }
         Symbol::Macro(macro_sym) => {
@@ -501,7 +525,7 @@ fn print_symbol(symbol: &Symbol, indent: &str) {
             println!("{indent}Type: Suffixed");
             println!("{indent}Suffix: {}", suffixed.suffix);
             println!("{indent}Inner:");
-            print_symbol(&suffixed.inner, &inner_indent);
+            print_symbol(&suffixed.inner, nesting + 1);
         }
     }
 }
@@ -578,7 +602,7 @@ fn main() {
         let ctx = Context::new();
         if let Some(symbol) = Symbol::parse(&ctx, &args.symbol) {
             println!("\nStructured Symbol:");
-            print_symbol(&symbol, "  ");
+            print_symbol(&symbol, 0);
         } else {
             println!("\n(Failed to parse symbol)");
         }
