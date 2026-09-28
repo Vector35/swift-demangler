@@ -129,7 +129,7 @@ The library vendors Swift demangling code and required LLVM headers in `vendor/`
 ./scripts/extract-swift-demangling.sh /path/to/swift
 ```
 
-The script will:
+The script can be run from any directory. It will:
 - Copy Swift demangling sources from `lib/Demangling/`
 - Copy required Swift and LLVM headers
 - Copy license files

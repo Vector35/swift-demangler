@@ -1,6 +1,6 @@
 #!/bin/bash
 # extract-swift-demangling.sh
-# Run from the project root with Swift checkout path as argument
+# Extracts into swift-demangling/vendor. Takes the Swift checkout path as argument.
 
 set -e
 
@@ -9,7 +9,8 @@ if [ -z "$1" ]; then
     exit 1
 fi
 
-SWIFT_SRC="$1"
+SWIFT_SRC="$(realpath "$1")"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 LLVM_SRC="$(realpath "$SWIFT_SRC/../llvm-project/llvm" 2>/dev/null)"
 
 if [ ! -d "$SWIFT_SRC" ]; then
@@ -25,7 +26,7 @@ fi
 echo "Extracting Swift demangling from: $SWIFT_SRC"
 echo "Using LLVM from: $LLVM_SRC"
 
-DEST="vendor/swift-demangling"
+DEST="$(dirname "$SCRIPT_DIR")/vendor"
 rm -rf "$DEST"
 mkdir -p "$DEST/lib" "$DEST/include/swift"
 
@@ -187,13 +188,10 @@ cp "$SWIFT_SRC/test/Demangle/Inputs/manglings.txt" "$DEST/tests/"
 cp "$SWIFT_SRC/test/Demangle/Inputs/simplified-manglings.txt" "$DEST/tests/"
 
 # Record version
-cd "$SWIFT_SRC"
-VERSION_INFO=$(git describe --tags 2>/dev/null || git rev-parse --short HEAD)
-echo "$VERSION_INFO" > "$OLDPWD/$DEST/VERSION"
-cd "$OLDPWD"
+VERSION_INFO=$(git -C "$SWIFT_SRC" describe --tags 2>/dev/null || git -C "$SWIFT_SRC" rev-parse --short HEAD)
+echo "$VERSION_INFO" > "$DEST/VERSION"
 
 # Generate node kind enums (C and Rust)
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 "$SCRIPT_DIR/generate-node-kinds.sh" "$DEST"
 
 echo ""

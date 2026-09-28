@@ -6,7 +6,8 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
-VENDOR_DIR="${1:-$PROJECT_DIR/vendor/swift-demangling}"
+VENDOR_DIR="${1:-$PROJECT_DIR/vendor}"
+RUST_SRC_DIR="$(dirname "$PROJECT_DIR")/src"
 
 if [ ! -f "$VENDOR_DIR/include/swift/Demangling/DemangleNodes.def" ]; then
     echo "Error: DemangleNodes.def not found at: $VENDOR_DIR/include/swift/Demangling/DemangleNodes.def"
@@ -23,10 +24,9 @@ cc -I"$VENDOR_DIR/include" -o "$TEMP_DIR/gen-c" "$SCRIPT_DIR/generate-node-kinds
 "$TEMP_DIR/gen-c" > "$PROJECT_DIR/include/swift_node_kinds.h"
 
 # Generate Rust module
-echo "Generating rust/src/raw/node_kinds.rs..."
+echo "Generating src/raw/node_kinds.rs..."
 cc -I"$VENDOR_DIR/include" -o "$TEMP_DIR/gen-rs" "$SCRIPT_DIR/generate-node-kinds-rs.c"
-mkdir -p "$PROJECT_DIR/rust/src/raw"
-"$TEMP_DIR/gen-rs" > "$PROJECT_DIR/rust/src/raw/node_kinds.rs"
+"$TEMP_DIR/gen-rs" > "$RUST_SRC_DIR/raw/node_kinds.rs"
 
 COUNT=$(grep -c 'SwiftNodeKind_' "$PROJECT_DIR/include/swift_node_kinds.h")
 echo "Generated $COUNT node kinds"
