@@ -170,6 +170,7 @@ kind.
 
 ```bash
 cargo test
+SWIFT_DEMANGLE_UBSAN=1 cargo test   # macOS only
 ```
 
 The build includes static assertions that check a few key values of the

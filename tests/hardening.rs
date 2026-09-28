@@ -3,6 +3,10 @@
 //!
 //! Everything runs on a 512 KiB thread, or 1 MiB on Windows, matching the
 //! smallest default thread stacks on the supported platforms.
+//!
+//! When built with `SWIFT_DEMANGLE_UBSAN=1`, inputs that must fail are run in
+//! child processes so that UndefinedBehaviorSanitizer reports can be checked
+//! per input.
 
 use swift_demangler::raw::{Context, Node, demangle};
 use swift_demangler::{HasFunctionSignature, MAX_NODE_DEPTH, Symbol, TypeKind, TypeRef};
@@ -294,20 +298,67 @@ fn deep_trees_within_limit() {
     });
 }
 
-/// Inputs that must fail.
-const MUST_FAIL: &[&str] = &[
-    "$sSiTQ2147483647_",
-    "$s999999999999999999999999",
-    "$s4main5helloSSyYaKFTQ2147483647_",
-    "$s4main1fyyq2147483646_lF",
-    "$s4main1fyyqd2147483646__lF",
+/// Inputs that must fail, and whether UBSan finds undefined behavior in the
+/// vendored parser for them.
+const MUST_FAIL: &[(&str, bool)] = &[
+    ("$sSiTQ2147483647_", false),
+    ("$s999999999999999999999999", false),
+    ("$s4main5helloSSyYaKFTQ2147483647_", false),
+    // Upstream's `demangleIndex() + 1` overflows when the index is INT_MAX
+    // (three call sites in Demangler.cpp). Callers reject the wrapped value, so
+    // parsing fails cleanly, but UBSan reports the overflow. Remove these once
+    // a rebaseline includes an upstream fix.
+    ("$s4main1fyyq2147483646_lF", true),
+    ("$s4main1fyyqd2147483646__lF", true),
 ];
+
+const CHILD_INPUT: &str = "SWIFT_DEMANGLE_HARDENING_INPUT";
+
+fn ubsan_enabled() -> bool {
+    option_env!("SWIFT_DEMANGLE_UBSAN").is_some_and(|v| !v.is_empty() && v != "0")
+}
 
 #[test]
 fn fails_cleanly() {
-    on_small_stack(|| {
-        for mangled in MUST_FAIL {
-            assert_eq!(exercise(mangled), None, "{mangled}");
+    if !ubsan_enabled() {
+        on_small_stack(|| {
+            for (mangled, _) in MUST_FAIL {
+                assert_eq!(exercise(mangled), None, "{mangled}");
+            }
+        });
+        return;
+    }
+
+    // Under UBSan any undefined behavior aborts, so check each input in its
+    // own process.
+    for &(mangled, expect_ub) in MUST_FAIL {
+        let output = std::process::Command::new(std::env::current_exe().unwrap())
+            .args([
+                "--exact",
+                "fails_cleanly_child",
+                "--include-ignored",
+                "--nocapture",
+            ])
+            .env(CHILD_INPUT, mangled)
+            .output()
+            .unwrap();
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        let ub = stderr.contains("runtime error:");
+        if expect_ub {
+            assert!(
+                ub && !output.status.success(),
+                "{mangled} is now UBSan clean; remove it from the expected failures\n{stderr}"
+            );
+        } else {
+            assert!(output.status.success() && !ub, "{mangled}:\n{stderr}");
         }
-    });
+    }
+}
+
+#[test]
+#[ignore = "run by fails_cleanly in a child process"]
+fn fails_cleanly_child() {
+    if let Ok(mangled) = std::env::var(CHILD_INPUT) {
+        on_small_stack(move || assert_eq!(exercise(&mangled), None, "{mangled}"));
+    }
 }

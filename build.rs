@@ -49,6 +49,20 @@ fn build_bundled() {
         );
     }
 
+    // SWIFT_DEMANGLE_UBSAN=1 builds the C++ with UndefinedBehaviorSanitizer for
+    // this crate's tests. Any undefined behavior aborts.
+    println!("cargo:rerun-if-env-changed=SWIFT_DEMANGLE_UBSAN");
+    if std::env::var("SWIFT_DEMANGLE_UBSAN").is_ok_and(|v| !v.is_empty() && v != "0") {
+        for flag in [
+            "-fsanitize=undefined",
+            "-fno-sanitize-recover=undefined",
+            "-fno-omit-frame-pointer",
+        ] {
+            cmake_config.cxxflag(flag);
+        }
+        link_ubsan_runtime();
+    }
+
     let dst = cmake_config.build();
 
     println!("cargo:rustc-link-search=native={}/lib", dst.display());
@@ -62,6 +76,27 @@ fn build_bundled() {
     println!("cargo:rerun-if-changed=swift-demangling/CMakeLists.txt");
 
     link_cpp_stdlib();
+}
+
+/// Link Clang's UBSan runtime. rustc links with -nodefaultlibs, so passing
+/// -fsanitize to the linker driver wouldn't add it.
+#[cfg(feature = "bundled")]
+fn link_ubsan_runtime() {
+    let target = std::env::var("TARGET").unwrap();
+    assert!(
+        target.contains("apple-darwin"),
+        "SWIFT_DEMANGLE_UBSAN is only supported on macOS"
+    );
+    let cxx = std::env::var("CXX").unwrap_or_else(|_| "c++".to_string());
+    let output = std::process::Command::new(&cxx)
+        .arg("-print-resource-dir")
+        .output()
+        .unwrap_or_else(|e| panic!("failed to run {cxx} -print-resource-dir: {e}"));
+    let resource_dir = String::from_utf8(output.stdout).unwrap();
+    let lib_dir = std::path::Path::new(resource_dir.trim()).join("lib/darwin");
+    println!("cargo:rustc-link-search=native={}", lib_dir.display());
+    println!("cargo:rustc-link-lib=dylib=clang_rt.ubsan_osx_dynamic");
+    println!("cargo:rustc-link-arg=-Wl,-rpath,{}", lib_dir.display());
 }
 
 fn link_cpp_stdlib() {
