@@ -209,6 +209,15 @@ impl<'ctx> Node<'ctx> {
         }
     }
 
+    /// Check that the tree rooted at this node is at most `max_depth` nodes deep.
+    ///
+    /// Specialization payloads that are themselves mangled symbols count as
+    /// their demangled trees, nested at the payload, since the printer
+    /// demangles them too.
+    pub fn depth_within(&self, max_depth: usize) -> bool {
+        unsafe { ffi::swift_demangle_node_depth_within(self.ptr.as_ptr(), max_depth) }
+    }
+
     /// Iterate over all children.
     pub fn children(&self) -> Children<'ctx> {
         Children {

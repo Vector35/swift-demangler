@@ -24,6 +24,14 @@
 extern "C" {
 #endif
 
+/*
+ * The deepest tree that swift_demangle_symbol, swift_demangle_node_to_string
+ * and swift_demangle_get_function_info print. They fail on deeper trees
+ * rather than risk overflowing the stack. Depth is measured as by
+ * swift_demangle_node_depth_within. Matches NodePrinter::MaxDepth.
+ */
+#define SWIFT_DEMANGLE_MAX_NODE_DEPTH 768
+
 /* Opaque handles */
 struct SwiftDemangleContext;
 struct SwiftDemangleNode;
@@ -145,6 +153,13 @@ SWIFT_DEMANGLE_EXPORT struct SwiftDemangleNode* swift_demangle_node_get_child(
  * swift_demangle_free_string(), or NULL on failure.
  */
 SWIFT_DEMANGLE_EXPORT char* swift_demangle_node_to_string(struct SwiftDemangleNode* node);
+
+/*
+ * Check whether the tree rooted at node is at most max_depth nodes deep.
+ * Specialization payloads that are themselves mangled symbols count as their
+ * demangled trees, nested at the payload, since the printer demangles them too.
+ */
+SWIFT_DEMANGLE_EXPORT bool swift_demangle_node_depth_within(struct SwiftDemangleNode* node, size_t max_depth);
 
 /* ============================================================================
  * Convenience: Function Info Extraction

@@ -7,7 +7,9 @@
 #include "swift/Demangling/Demangle.h"
 
 #include <cstring>
+#include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 using namespace swift::Demangle;
@@ -68,6 +70,40 @@ static NodePointer findNode(NodePointer node, Node::Kind kind, int maxDepth = 20
 }
 
 /* ============================================================================
+ * Internal: Depth check before printing
+ * ============================================================================ */
+
+// NodePrinter recurses once per tree level. It stops at its own MaxDepth,
+// but it also demangles specialization payloads that are themselves mangled
+// symbols, and each nested demangle restarts that count. Payloads nested in
+// payloads therefore recurse without bound. This counts each such payload's
+// tree as nested at the payload's position, so the depth bounds the
+// printer's stack use.
+static bool depthWithin(NodePointer root, size_t maxDepth) {
+    // Owns the demangled payload trees. Created lazily, as most symbols have none.
+    std::unique_ptr<Context> nestedCtx;
+    std::vector<std::pair<NodePointer, size_t>> work{{root, 1}};
+    while (!work.empty()) {
+        auto [node, depth] = work.back();
+        work.pop_back();
+        if (!node) continue;
+        if (depth > maxDepth) return false;
+        if (node->hasText() && isSwiftSymbol(node->getText())) {
+            if (!nestedCtx) nestedCtx = std::make_unique<Context>();
+            if (NodePointer nested = nestedCtx->demangleSymbolAsNode(node->getText()))
+                work.emplace_back(nested, depth + 1);
+        }
+        for (auto child : *node)
+            work.emplace_back(child, depth + 1);
+    }
+    return true;
+}
+
+static bool printable(NodePointer node) {
+    return depthWithin(node, SWIFT_DEMANGLE_MAX_NODE_DEPTH);
+}
+
+/* ============================================================================
  * Context Management
  * ============================================================================ */
 
@@ -98,7 +134,7 @@ char* swift_demangle_symbol(const char* mangled_name) {
 
     Context ctx;
     NodePointer node = ctx.demangleSymbolAsNode(mangled_name);
-    if (!node) return nullptr;
+    if (!node || !printable(node)) return nullptr;
 
     std::string result = nodeToString(node);
     return duplicateString(result);
@@ -183,9 +219,15 @@ struct SwiftDemangleNode* swift_demangle_node_get_child(
     return reinterpret_cast<struct SwiftDemangleNode*>(np->getChild(index));
 }
 
+bool swift_demangle_node_depth_within(struct SwiftDemangleNode* node, size_t max_depth) {
+    if (!node) return false;
+    return depthWithin(reinterpret_cast<NodePointer>(node), max_depth);
+}
+
 char* swift_demangle_node_to_string(struct SwiftDemangleNode* node) {
     if (!node) return nullptr;
     auto* np = reinterpret_cast<NodePointer>(node);
+    if (!printable(np)) return nullptr;
     std::string result = nodeToString(np);
     return duplicateString(result);
 }
@@ -205,7 +247,7 @@ bool swift_demangle_get_function_info(
 
     Context ctx;
     NodePointer root = ctx.demangleSymbolAsNode(mangled_name);
-    if (!root) return false;
+    if (!root || !printable(root)) return false;
 
     // Find the function node
     NodePointer fn = findNode(root, Node::Kind::Function);

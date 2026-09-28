@@ -61,6 +61,8 @@ unsafe extern "C" {
         index: usize,
     ) -> *mut SwiftDemangleNode;
     pub fn swift_demangle_node_to_string(node: *mut SwiftDemangleNode) -> *mut c_char;
+    pub fn swift_demangle_node_depth_within(node: *mut SwiftDemangleNode, max_depth: usize)
+    -> bool;
 
     // Function info
     pub fn swift_demangle_get_function_info(

@@ -21,6 +21,15 @@ use crate::thunk::Thunk;
 use crate::types::TypeRef;
 use crate::witness_table::WitnessTable;
 
+/// The deepest tree that [`Symbol::parse`], [`Symbol::from_node`],
+/// [`demangle`](crate::demangle) and `Node`'s `Display` accept, as measured by
+/// [`Node::depth_within`].
+///
+/// Walking or printing a tree recurses once per level, so deeper trees are
+/// rejected rather than risk overflowing the stack. 768 is the printer's own
+/// limit, and well above the depth of any real symbol.
+pub const MAX_NODE_DEPTH: usize = 768;
+
 /// A parsed Swift symbol.
 ///
 /// This enum categorizes symbols based on the first child of the `Global` root node.
@@ -209,7 +218,8 @@ pub struct SuffixedSymbol<'ctx> {
 impl<'ctx> Symbol<'ctx> {
     /// Parse a mangled Swift symbol.
     ///
-    /// Returns `None` if the symbol cannot be parsed.
+    /// Returns `None` if the symbol cannot be parsed, or if its tree is deeper
+    /// than [`MAX_NODE_DEPTH`].
     pub fn parse(ctx: &'ctx Context, mangled: &str) -> Option<Self> {
         let root = Node::parse(ctx, mangled)?;
         Self::from_node(root)
@@ -218,8 +228,9 @@ impl<'ctx> Symbol<'ctx> {
     /// Create a Symbol from a parsed root node.
     ///
     /// The node should be a `Global` node (the root of a demangled symbol tree).
+    /// Returns `None` if it isn't, or if the tree is deeper than [`MAX_NODE_DEPTH`].
     pub fn from_node(root: Node<'ctx>) -> Option<Self> {
-        if root.kind() != NodeKind::Global {
+        if root.kind() != NodeKind::Global || !root.depth_within(MAX_NODE_DEPTH) {
             return None;
         }
 

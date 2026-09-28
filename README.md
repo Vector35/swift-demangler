@@ -61,6 +61,13 @@ if let Some(root) = Node::parse(&ctx, "$s4main5helloSSyYaKF") {
 }
 ```
 
+### Stack Usage
+
+`Symbol::parse`, `Symbol::from_node` and `demangle` return `None` for symbols
+whose demangled tree is deeper than `MAX_NODE_DEPTH`, which is well above the
+depth of any real symbol. Parsing, printing and formatting a symbol fit within a
+512 KiB thread stack.
+
 ## Building
 
 ### Default (Bundled)

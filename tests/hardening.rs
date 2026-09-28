@@ -4,8 +4,8 @@
 //! Everything runs on a 512 KiB thread, or 1 MiB on Windows, matching the
 //! smallest default thread stacks on the supported platforms.
 
-use swift_demangler::Symbol;
-use swift_demangler::raw::{Context, demangle};
+use swift_demangler::raw::{Context, Node, demangle};
+use swift_demangler::{HasFunctionSignature, MAX_NODE_DEPTH, Symbol, TypeKind, TypeRef};
 
 #[cfg(not(windows))]
 const SMALL_STACK: usize = 512 * 1024;
@@ -21,7 +21,7 @@ fn on_small_stack<T: Send + 'static>(f: impl FnOnce() -> T + Send + 'static) -> 
         .unwrap()
 }
 
-/// Parse, print, format and drop `mangled` through every public entry point.
+/// Parse, print, format, walk and drop `mangled` through every public entry point.
 fn exercise(mangled: &str) -> Option<String> {
     let ctx = Context::new();
     let demangled = demangle(mangled);
@@ -35,8 +35,82 @@ fn exercise(mangled: &str) -> Option<String> {
         symbol.display();
         let _ = format!("{symbol:?}");
         let _ = format!("{symbol:#?}");
+        walk_types(symbol);
     }
     demangled
+}
+
+/// Read the types reachable from a symbol through the typed accessors, the way
+/// a consumer building its own type representation does: peel wrappers, then
+/// visit every parameter and return type down to the leaves.
+fn walk_types(mut symbol: &Symbol) {
+    loop {
+        symbol = match symbol {
+            Symbol::Specialization(s) => &s.inner,
+            Symbol::Attributed(a) => &a.inner,
+            Symbol::Suffixed(s) => &s.inner,
+            _ => break,
+        };
+    }
+    let mut pending: Vec<TypeRef> = Vec::new();
+    let signature = match symbol {
+        Symbol::Function(f) => f.signature(),
+        Symbol::Constructor(c) => c.signature(),
+        Symbol::Closure(c) => c.signature(),
+        Symbol::Type(t) => {
+            pending.push(*t);
+            None
+        }
+        _ => None,
+    };
+    if let Some(signature) = signature {
+        pending.extend(signature.parameters().into_iter().map(|p| p.type_ref));
+        pending.extend(signature.return_type());
+    }
+    while let Some(ty) = pending.pop() {
+        ty.display();
+        match ty.kind() {
+            TypeKind::Named(named) => pending.extend(named.generic_args()),
+            TypeKind::Function(f) => {
+                pending.extend(f.parameters().into_iter().map(|p| p.type_ref));
+                pending.extend(f.return_type());
+            }
+            TypeKind::ImplFunction(f) => {
+                pending.extend(f.parameters().iter().filter_map(|p| p.type_ref()));
+                pending.extend(f.results().iter().filter_map(|r| r.type_ref()));
+                pending.extend(f.substitutions());
+            }
+            TypeKind::Tuple(elements) => pending.extend(elements.iter().map(|e| e.type_ref())),
+            TypeKind::Optional(t)
+            | TypeKind::Array(t)
+            | TypeKind::Metatype(t)
+            | TypeKind::InOut(t)
+            | TypeKind::Shared(t)
+            | TypeKind::Owned(t)
+            | TypeKind::Weak(t)
+            | TypeKind::Unowned(t)
+            | TypeKind::Sending(t)
+            | TypeKind::Isolated(t)
+            | TypeKind::NoDerivative(t)
+            | TypeKind::CompileTimeLiteral(t)
+            | TypeKind::DynamicSelf(t)
+            | TypeKind::ConstrainedExistential(t)
+            | TypeKind::BuiltinBorrow(t)
+            | TypeKind::AssociatedType { base: t, .. }
+            | TypeKind::Generic { inner: t, .. } => pending.push(*t),
+            TypeKind::Dictionary { key, value } => pending.extend([*key, *value]),
+            TypeKind::Existential(types) | TypeKind::Pack(types) => pending.extend(types),
+            TypeKind::BuiltinFixedArray { element, .. } => pending.extend(element.map(|e| *e)),
+            TypeKind::SILBox {
+                fields,
+                substitutions,
+            } => {
+                pending.extend(fields.into_iter().map(|f| f.type_ref));
+                pending.extend(substitutions);
+            }
+            _ => {}
+        }
+    }
 }
 
 #[test]
@@ -142,6 +216,80 @@ fn real_symbols() {
         for mangled in cases {
             let demangled = exercise(mangled).unwrap_or_else(|| panic!("{mangled} failed"));
             assert!(!demangled.contains("<<too complex>>"), "{mangled}");
+        }
+    });
+}
+
+/// Nesting `count` constant-propagated function payloads, each of which the
+/// printer demangles as a separate symbol.
+fn nested_payloads(count: usize) -> String {
+    let mut mangled = String::from("$s3foo3barF");
+    for _ in 0..count {
+        mangled = format!("$s3foo{}{mangled}Tf1pf_n", mangled.len());
+    }
+    mangled
+}
+
+#[test]
+fn nested_payloads_are_bounded() {
+    on_small_stack(|| {
+        let accepted = nested_payloads(100);
+        let demangled = exercise(&accepted).unwrap();
+        assert_eq!(
+            demangled
+                .matches("function signature specialization")
+                .count(),
+            100
+        );
+
+        // Each level restarts the printer's own depth limit, so without the
+        // crate's limit this overflows the stack.
+        assert_eq!(exercise(&nested_payloads(1000)), None);
+    });
+}
+
+#[test]
+fn depth_limit_boundary() {
+    on_small_stack(|| {
+        let ctx = Context::new();
+        let depth = |node: Node| {
+            let mut max = 0;
+            let mut stack = vec![(node, 1)];
+            while let Some((node, d)) = stack.pop() {
+                max = usize::max(max, d);
+                stack.extend(node.children().map(|c| (c, d + 1)));
+            }
+            max
+        };
+        let (mut accepted, mut rejected) = (false, false);
+        for count in 240..270 {
+            let mangled = format!("$sSi{}D", "Sg".repeat(count));
+            let root = Node::parse(&ctx, &mangled).unwrap();
+            let within = depth(root) <= MAX_NODE_DEPTH;
+            assert_eq!(root.depth_within(MAX_NODE_DEPTH), within);
+            assert_eq!(exercise(&mangled).is_some(), within, "{count} optionals");
+            accepted |= within;
+            rejected |= !within;
+        }
+        assert!(accepted && rejected, "range should straddle the limit");
+    });
+}
+
+/// Deep trees just inside the limit, for the constructs that use the most stack.
+#[test]
+fn deep_trees_within_limit() {
+    let cases = [
+        // Nested closures use the most stack in the printer.
+        format!("$s4main1fyyF{}", "yycfU_".repeat(761)),
+        format!("$s{}Si{}D", "Si_".repeat(254), "t".repeat(254)),
+        format!("$sSi{}D", "m".repeat(381)),
+        format!("_Tt{}Si{}", "GSq".repeat(254), "_".repeat(254)),
+        format!("_Tt{}Si", "FSi".repeat(254)),
+        nested_payloads(192),
+    ];
+    on_small_stack(move || {
+        for mangled in cases {
+            assert!(exercise(&mangled).is_some(), "{mangled}");
         }
     });
 }

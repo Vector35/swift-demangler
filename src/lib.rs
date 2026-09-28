@@ -88,8 +88,8 @@ pub use specialization::{
     Specialization, SpecializationKind,
 };
 pub use symbol::{
-    AttributedSymbol, DefaultArgument, OutlinedSymbol, SpecializedSymbol, SuffixedSymbol, Symbol,
-    SymbolAttribute, Variable,
+    AttributedSymbol, DefaultArgument, MAX_NODE_DEPTH, OutlinedSymbol, SpecializedSymbol,
+    SuffixedSymbol, Symbol, SymbolAttribute, Variable,
 };
 pub use thunk::{
     AutoDiffThunk, AutoDiffThunkKind, DispatchKind, OtherThunkKind, ProtocolWitnessThunk,
