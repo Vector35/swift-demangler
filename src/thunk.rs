@@ -221,6 +221,14 @@ impl<'ctx> Thunk<'ctx> {
         }
     }
 
+    pub(crate) fn inner_mut(&mut self) -> Option<&mut Box<Symbol<'ctx>>> {
+        match self {
+            Self::Dispatch { inner, .. } => Some(inner),
+            Self::PartialApply { inner, .. } | Self::Other { inner, .. } => inner.as_mut(),
+            _ => None,
+        }
+    }
+
     /// Get the underlying raw node.
     pub fn raw(&self) -> Node<'ctx> {
         match self {
@@ -645,8 +653,8 @@ mod tests {
         )
         .unwrap();
         assert!(symbol.is_thunk());
-        if let Symbol::Thunk(Thunk::Dispatch { inner, kind, .. }) = symbol {
-            assert_eq!(kind, DispatchKind::Protocol);
+        if let Symbol::Thunk(Thunk::Dispatch { inner, kind, .. }) = &symbol {
+            assert_eq!(*kind, DispatchKind::Protocol);
             assert!(inner.is_constructor());
         } else {
             panic!("Expected dispatch thunk");

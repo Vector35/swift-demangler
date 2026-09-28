@@ -38,6 +38,10 @@ impl<'ctx> Metadata<'ctx> {
         self.raw
     }
 
+    pub(crate) fn inner_mut(&mut self) -> Option<&mut Box<Symbol<'ctx>>> {
+        self.inner.as_mut()
+    }
+
     /// Get the kind of metadata.
     pub fn kind(&self) -> MetadataKind {
         match self.raw.kind() {
@@ -277,7 +281,7 @@ mod tests {
         // type metadata for Swift.UInt16
         let symbol = Symbol::parse(&ctx, "$ss6UInt16VN").unwrap();
         assert!(symbol.is_metadata());
-        if let Symbol::Metadata(meta) = symbol {
+        if let Symbol::Metadata(meta) = &symbol {
             assert_eq!(meta.kind(), super::MetadataKind::Type);
             let meta_type = meta.metadata_type().expect("should have metadata type");
             // Module info is in the type: Swift.UInt16
@@ -293,7 +297,7 @@ mod tests {
         // type metadata accessor for Swift.Int
         let symbol = Symbol::parse(&ctx, "$sSiMa").unwrap();
         assert!(symbol.is_metadata());
-        if let Symbol::Metadata(meta) = symbol {
+        if let Symbol::Metadata(meta) = &symbol {
             assert_eq!(meta.kind(), super::MetadataKind::AccessFunction);
             assert!(meta.is_accessor());
             let meta_type = meta.metadata_type().expect("should have metadata type");

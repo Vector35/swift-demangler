@@ -438,7 +438,7 @@ mod tests {
         if let Symbol::Specialization(SpecializedSymbol {
             specialization,
             inner,
-        }) = symbol
+        }) = &symbol
         {
             assert_eq!(specialization.kind(), SpecializationKind::Prespecialized);
             assert_eq!(specialization.pass_id(), Some(5));
@@ -464,7 +464,7 @@ mod tests {
         if let Symbol::Specialization(SpecializedSymbol {
             specialization,
             inner,
-        }) = symbol
+        }) = &symbol
         {
             assert_eq!(specialization.kind(), SpecializationKind::FunctionSignature);
             assert_eq!(specialization.pass_id(), Some(1));
@@ -509,7 +509,7 @@ mod tests {
         if let Symbol::Specialization(SpecializedSymbol {
             specialization,
             inner,
-        }) = symbol
+        }) = &symbol
         {
             assert_eq!(specialization.kind(), SpecializationKind::FunctionSignature);
 

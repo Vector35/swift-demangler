@@ -75,6 +75,54 @@ fn keeps_working() {
     });
 }
 
+/// `hello` wrapped in `count` generic specializations, which the parser
+/// represents as `count + 1` siblings under `Global`.
+fn stacked_specializations(count: usize) -> String {
+    format!("$s4main5helloSSyYaKF{}", "yTg5".repeat(count))
+}
+
+fn check_specialization_chain(count: usize) {
+    on_small_stack(move || {
+        let mangled = stacked_specializations(count);
+        let expected = format!(
+            "{}main.hello() async throws -> Swift.String",
+            "generic specialization <> of ".repeat(count)
+        );
+        assert_eq!(exercise(&mangled), Some(expected));
+
+        let ctx = Context::new();
+        let symbol = Symbol::parse(&ctx, &mangled).unwrap();
+        let mut layers = 0;
+        let mut inner = &symbol;
+        while let Symbol::Specialization(s) = inner {
+            layers += 1;
+            inner = &s.inner;
+        }
+        assert_eq!(layers, count);
+        assert!(inner.is_function());
+    });
+}
+
+#[test]
+fn specialization_chain_3() {
+    check_specialization_chain(3);
+}
+
+#[test]
+fn specialization_chain_255() {
+    check_specialization_chain(255);
+}
+
+#[test]
+fn specialization_chain_5000() {
+    check_specialization_chain(5000);
+}
+
+#[test]
+fn specialization_chain_30000() {
+    check_specialization_chain(30000);
+}
+
 #[test]
 fn real_symbols() {
     let cases = [

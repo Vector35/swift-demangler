@@ -25,6 +25,10 @@ use crate::witness_table::WitnessTable;
 ///
 /// This enum categorizes symbols based on the first child of the `Global` root node.
 /// It provides a high-level view of what a symbol represents.
+///
+/// `Symbol` implements [`Drop`] to free long chains of wrapper symbols without
+/// recursion, so nested symbols can't be moved out of it. Match on a reference
+/// instead.
 #[derive(Debug)]
 pub enum Symbol<'ctx> {
     /// A function symbol.
@@ -297,10 +301,7 @@ impl<'ctx> Symbol<'ctx> {
 
         // Check for marker kinds (async/coro, metadata, thunk markers) that have the actual symbol as a sibling
         // These can be chained: [CoroFunctionPointer, DefaultOverride, Accessor]
-        if Self::is_async_marker_kind(first_child.kind())
-            || Self::is_metadata_marker_kind(first_child.kind())
-            || Self::is_thunk_marker_kind(first_child.kind())
-        {
+        if Self::is_marker_kind(first_child.kind()) {
             return Some(Self::build_marker_chain(root, 0));
         }
 
@@ -335,76 +336,77 @@ impl<'ctx> Symbol<'ctx> {
     /// Build a chain of nested specializations.
     ///
     /// For nested specializations like `spec of spec of func`, all nodes are
-    /// siblings in Global: [Spec1, Spec2, Func]. This function recursively
-    /// builds the nested SpecializedSymbol structure.
-    fn build_specialization_chain(root: Node<'ctx>, index: usize) -> Symbol<'ctx> {
-        let Some(current) = root.child(index) else {
-            // No more children - shouldn't happen for well-formed symbols
-            return Symbol::Other(root);
+    /// siblings in Global: [Spec1, Spec2, Func]. The chain is built from the
+    /// innermost symbol outwards, so its length doesn't affect stack depth.
+    fn build_specialization_chain(root: Node<'ctx>, start: usize) -> Symbol<'ctx> {
+        let mut end = start;
+        while root
+            .child(end)
+            .is_some_and(|c| Self::is_specialization_kind(c.kind()))
+        {
+            end += 1;
+        }
+        let Some(last) = end.checked_sub(1).and_then(|i| root.child(i)) else {
+            return root
+                .child(start)
+                .map_or(Symbol::Other(root), Self::classify);
         };
 
-        if Self::is_specialization_kind(current.kind()) {
-            // This is a specialization - its inner is the next sibling
-            let inner = if let Some(next) = root.child(index + 1) {
-                if Self::is_specialization_kind(next.kind()) {
-                    // Next sibling is also a specialization - recurse
-                    Self::build_specialization_chain(root, index + 1)
-                } else {
-                    // Next sibling is the actual function/symbol
-                    Self::classify(next)
-                }
-            } else {
-                // No next sibling - use current as fallback
-                Symbol::Other(current)
-            };
-
-            Symbol::Specialization(SpecializedSymbol {
-                specialization: Specialization::new(current),
-                inner: Box::new(inner),
-            })
-        } else {
-            // Not a specialization - just classify it
-            Self::classify(current)
+        // The innermost specialization wraps the next sibling, or itself if
+        // there is none.
+        let mut symbol = root.child(end).map_or(Symbol::Other(last), Self::classify);
+        for index in (start..end).rev() {
+            let Some(node) = root.child(index) else { break };
+            symbol = Symbol::Specialization(SpecializedSymbol {
+                specialization: Specialization::new(node),
+                inner: Box::new(symbol),
+            });
         }
+        symbol
     }
 
     /// Build a chain of nested marker symbols (async/coro pointers, default overrides, thunk markers).
     ///
     /// For chains like `[CoroFunctionPointer, DefaultOverride, Accessor]`, this builds
-    /// nested wrapper symbols.
-    fn build_marker_chain(root: Node<'ctx>, index: usize) -> Symbol<'ctx> {
-        let Some(current) = root.child(index) else {
-            return Symbol::Other(root);
-        };
-
-        // Get the inner symbol (either another marker or the actual symbol)
-        let inner = if let Some(next) = root.child(index + 1) {
-            if Self::is_async_marker_kind(next.kind())
-                || Self::is_metadata_marker_kind(next.kind())
-                || Self::is_thunk_marker_kind(next.kind())
-            {
-                // Next sibling is also a marker - recurse
-                Self::build_marker_chain(root, index + 1)
-            } else {
-                // Next sibling is the actual symbol
-                Self::classify(next)
-            }
-        } else {
-            // No next sibling - use current as fallback
-            return Symbol::Other(current);
-        };
-
-        // Wrap the inner symbol with the appropriate marker
-        if Self::is_async_marker_kind(current.kind()) {
-            Symbol::Async(AsyncSymbol::with_inner(current, inner))
-        } else if Self::is_metadata_marker_kind(current.kind()) {
-            Symbol::Metadata(Metadata::with_inner(current, inner))
-        } else if Self::is_thunk_marker_kind(current.kind()) {
-            Symbol::Thunk(Thunk::new_marker(current, inner))
-        } else {
-            // Shouldn't happen, but fall back to the inner symbol
-            inner
+    /// nested wrapper symbols. The chain is built from the innermost symbol
+    /// outwards, so its length doesn't affect stack depth.
+    fn build_marker_chain(root: Node<'ctx>, start: usize) -> Symbol<'ctx> {
+        let mut end = start;
+        while root
+            .child(end)
+            .is_some_and(|c| Self::is_marker_kind(c.kind()))
+        {
+            end += 1;
         }
+
+        // The innermost marker wraps the next sibling. If there is none, the
+        // last marker stands in for the symbol itself.
+        let (mut symbol, wrappers) = match root.child(end) {
+            Some(next) => (Self::classify(next), end),
+            None if end > start => match root.child(end - 1) {
+                Some(last) => (Symbol::Other(last), end - 1),
+                None => return Symbol::Other(root),
+            },
+            None => return Symbol::Other(root),
+        };
+        for index in (start..wrappers).rev() {
+            let Some(node) = root.child(index) else { break };
+            let kind = node.kind();
+            symbol = if Self::is_async_marker_kind(kind) {
+                Symbol::Async(AsyncSymbol::with_inner(node, symbol))
+            } else if Self::is_metadata_marker_kind(kind) {
+                Symbol::Metadata(Metadata::with_inner(node, symbol))
+            } else {
+                Symbol::Thunk(Thunk::new_marker(node, symbol))
+            };
+        }
+        symbol
+    }
+
+    fn is_marker_kind(kind: NodeKind) -> bool {
+        Self::is_async_marker_kind(kind)
+            || Self::is_metadata_marker_kind(kind)
+            || Self::is_thunk_marker_kind(kind)
     }
 
     fn is_outlined_kind(kind: NodeKind) -> bool {
@@ -720,7 +722,11 @@ impl<'ctx> Symbol<'ctx> {
 
     /// Get the raw node for this symbol.
     pub fn raw(&self) -> Node<'ctx> {
-        match self {
+        let mut symbol = self;
+        while let Symbol::Suffixed(s) = symbol {
+            symbol = &s.inner;
+        }
+        match symbol {
             Symbol::Function(f) => f.raw(),
             Symbol::Constructor(c) => c.raw(),
             Symbol::Destructor(d) => d.raw(),
@@ -741,9 +747,24 @@ impl<'ctx> Symbol<'ctx> {
             Symbol::Macro(m) => m.raw(),
             Symbol::AutoDiff(a) => a.raw(),
             Symbol::Identifier(n) => *n,
-            Symbol::Suffixed(s) => s.inner.raw(),
+            Symbol::Suffixed(_) => unreachable!("suffixes were skipped above"),
             Symbol::Other(n) => *n,
         }
+    }
+
+    /// The symbol nested directly inside this one, if any.
+    fn nested_mut(&mut self) -> Option<&mut Symbol<'ctx>> {
+        match self {
+            Symbol::Specialization(s) => Some(&mut s.inner),
+            Symbol::Attributed(a) => Some(&mut a.inner),
+            Symbol::Outlined(o) => Some(&mut o.context),
+            Symbol::Suffixed(s) => Some(&mut s.inner),
+            Symbol::Async(a) => a.inner_mut(),
+            Symbol::Metadata(m) => m.inner_mut(),
+            Symbol::Thunk(t) => t.inner_mut(),
+            _ => None,
+        }
+        .map(|b| &mut **b)
     }
 
     /// Get the display string for this symbol.
@@ -995,6 +1016,25 @@ impl<'ctx> Symbol<'ctx> {
         match self {
             Symbol::AutoDiff(a) => Some(a),
             _ => None,
+        }
+    }
+}
+
+impl Drop for Symbol<'_> {
+    /// Frees nested symbols iteratively, since wrapper chains can be arbitrarily long.
+    fn drop(&mut self) {
+        // Detach the nested symbol unless it's a leaf, leaving a leaf in its place.
+        fn detach<'ctx>(symbol: &mut Symbol<'ctx>) -> Option<Symbol<'ctx>> {
+            let nested = symbol.nested_mut()?;
+            nested.nested_mut()?;
+            let leaf = Symbol::Other(nested.raw());
+            Some(std::mem::replace(nested, leaf))
+        }
+
+        let Some(first) = detach(self) else { return };
+        let mut pending = vec![first];
+        while let Some(mut symbol) = pending.pop() {
+            pending.extend(detach(&mut symbol));
         }
     }
 }

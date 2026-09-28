@@ -47,6 +47,10 @@ impl<'ctx> AsyncSymbol<'ctx> {
         self.raw
     }
 
+    pub(crate) fn inner_mut(&mut self) -> Option<&mut Box<Symbol<'ctx>>> {
+        self.inner.as_mut()
+    }
+
     /// Get the kind of async symbol.
     pub fn kind(&self) -> AsyncSymbolKind {
         match self.raw.kind() {
