@@ -75,6 +75,9 @@ This requires:
 - CMake 3.16+
 - C++20 compiler (Clang or GCC)
 
+The C++ is always built optimized (`RelWithDebInfo`), because unoptimized it can
+overflow a 512 KiB thread stack on real symbols.
+
 ### Pre-built Library
 
 To link against a pre-built library instead of building from source:

@@ -32,10 +32,21 @@ fn build_bundled() {
     let mut cmake_config = cmake::Config::new(&swift_demangling_dir);
     cmake_config.define("BUILD_CLI", "OFF");
 
-    // On MSVC, always use the release CRT to match Rust's linkage.
-    // Debug builds otherwise use MSVCRTD which conflicts at link time.
+    // Unoptimized, NodePrinter overflows a 512 KiB stack on real symbols.
+    // MSVC debug builds would also use the debug CRT, which conflicts with
+    // the release CRT that Rust uses.
+    cmake_config.profile("RelWithDebInfo");
+
+    // On MSVC the cmake crate replaces these flags with its own to pass the
+    // CRT choice, dropping the optimization flags. Set them ourselves.
     if std::env::var("CARGO_CFG_TARGET_ENV").as_deref() == Ok("msvc") {
-        cmake_config.profile("RelWithDebInfo");
+        let static_crt = std::env::var("CARGO_CFG_TARGET_FEATURE")
+            .is_ok_and(|features| features.split(',').any(|f| f == "crt-static"));
+        let crt = if static_crt { "/MT" } else { "/MD" };
+        cmake_config.define(
+            "CMAKE_CXX_FLAGS_RELWITHDEBINFO",
+            format!("{crt} /O2 /Ob1 /DNDEBUG"),
+        );
     }
 
     let dst = cmake_config.build();
