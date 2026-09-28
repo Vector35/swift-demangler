@@ -43,8 +43,11 @@ fn build_bundled() {
     println!("cargo:rustc-link-search=native={}/lib", dst.display());
     println!("cargo:rustc-link-lib=static=swift_demangle");
 
-    println!("cargo:rerun-if-changed=swift-demangling/src/swift_demangle.cpp");
-    println!("cargo:rerun-if-changed=swift-demangling/include/swift_demangle.h");
+    // Cargo checks directories recursively.
+    println!("cargo:rerun-if-changed=swift-demangling/src");
+    println!("cargo:rerun-if-changed=swift-demangling/include");
+    println!("cargo:rerun-if-changed=swift-demangling/vendor/include");
+    println!("cargo:rerun-if-changed=swift-demangling/vendor/lib");
     println!("cargo:rerun-if-changed=swift-demangling/CMakeLists.txt");
 
     link_cpp_stdlib();
