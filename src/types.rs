@@ -79,7 +79,33 @@ impl<'ctx> TypeRef<'ctx> {
             .unwrap_or(TypeKind::Other(self.raw))
     }
 
+    /// Skip `Type` wrappers and signature-less `DependentGenericType`s,
+    /// which classify as the type they wrap.
+    fn resolve(mut node: Node<'ctx>) -> Node<'ctx> {
+        loop {
+            let inner = match node.kind() {
+                NodeKind::Type => node.child(0),
+                NodeKind::DependentGenericType
+                    if node
+                        .child_of_kind(NodeKind::DependentGenericSignature)
+                        .is_none() =>
+                {
+                    node.child_of_kind(NodeKind::Type).and_then(|t| t.child(0))
+                }
+                _ => None,
+            };
+            match inner {
+                Some(inner) => node = inner,
+                None => return node,
+            }
+        }
+    }
+
     fn classify(&self) -> TypeKind<'ctx> {
+        TypeRef::new(Self::resolve(self.raw)).classify_resolved()
+    }
+
+    fn classify_resolved(&self) -> TypeKind<'ctx> {
         match self.raw.kind() {
             // Named types (classes, structs, enums, protocols, type aliases)
             NodeKind::Class
@@ -256,14 +282,8 @@ impl<'ctx> TypeRef<'ctx> {
             // Error type (invalid/failed demangling)
             NodeKind::ErrorType => TypeKind::Error,
 
-            // Type wrapper node - unwrap and classify the inner type
-            NodeKind::Type => {
-                if let Some(inner) = self.raw.child(0) {
-                    TypeRef::new(inner).classify()
-                } else {
-                    TypeKind::Other(self.raw)
-                }
-            }
+            // Only reached for a `Type` with no child.
+            NodeKind::Type => TypeKind::Other(self.raw),
 
             // Dynamic self
             NodeKind::DynamicSelf => self.wrap_child(TypeKind::DynamicSelf),
@@ -292,7 +312,7 @@ impl<'ctx> TypeRef<'ctx> {
                         signature: sig,
                         inner: Box::new(TypeRef::new(inner_node)),
                     },
-                    (None, Some(inner_node)) => TypeRef::new(inner_node).kind(),
+                    // `resolve` unwraps those without a signature.
                     _ => TypeKind::Other(self.raw),
                 }
             }
@@ -606,19 +626,21 @@ impl<'ctx> NamedType<'ctx> {
         }
     }
 
-    fn extract_name(node: Node<'ctx>) -> Option<&'ctx str> {
-        // First check if this node has an Identifier child
-        for child in node.children() {
-            if child.kind() == NodeKind::Identifier {
-                return child.text();
+    fn extract_name(mut node: Node<'ctx>) -> Option<&'ctx str> {
+        loop {
+            // First check if this node has an Identifier child
+            for child in node.children() {
+                if child.kind() == NodeKind::Identifier {
+                    return child.text();
+                }
+            }
+            // If this is a Type wrapper, unwrap it and look again
+            match node.unwrap_if_kind(NodeKind::Type) {
+                Some(inner) => node = inner,
+                // Fall back to the node's own text
+                None => return node.text(),
             }
         }
-        // If this is a Type wrapper, unwrap it and recurse
-        if let Some(inner) = node.unwrap_if_kind(NodeKind::Type) {
-            return Self::extract_name(inner);
-        }
-        // Fall back to the node's own text
-        node.text()
     }
 
     /// Get the module containing this type.
