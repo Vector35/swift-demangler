@@ -12299,6 +12299,96 @@ Specialization(
 
 --------
 
+  Mangled: $s3foo7closureSSTf1cC0_n
+Demangled: function signature specialization <Arg[0] = [Closure Propagated : closure, Argument Types : [Swift.String], Arg[1] = [Same As Argument 0]> of foo
+
+Specialization(
+    SpecializedSymbol {
+        specialization: Specialization {
+            kind: FunctionSignature,
+            pass_id: Some(
+                1,
+            ),
+            function_signature_params: [
+                FunctionSignatureParam {
+                    kind: ClosureProp,
+                    payloads: [
+                        "closure",
+                    ],
+                    types: [
+                        Named(
+                            NamedType {
+                                module: Some(
+                                    "Swift",
+                                ),
+                                name: Some(
+                                    "String",
+                                ),
+                            },
+                        ),
+                    ],
+                },
+                FunctionSignatureParam {
+                    kind: ClosurePropPreviousArg,
+                },
+            ],
+            module: Some(
+                "Swift",
+            ),
+        },
+        inner: Identifier(
+            Node { kind: Identifier, text: "foo" },
+        ),
+    },
+)
+
+--------
+
+  Mangled: $s3foo7closureSSTf1EC0_n
+Demangled: function signature specialization <Arg[0] = [Escaping Closure Propagated : closure, Argument Types : [Swift.String], Arg[1] = [Same As Argument 0]> of foo
+
+Specialization(
+    SpecializedSymbol {
+        specialization: Specialization {
+            kind: FunctionSignature,
+            pass_id: Some(
+                1,
+            ),
+            function_signature_params: [
+                FunctionSignatureParam {
+                    kind: EscapingClosureProp,
+                    payloads: [
+                        "closure",
+                    ],
+                    types: [
+                        Named(
+                            NamedType {
+                                module: Some(
+                                    "Swift",
+                                ),
+                                name: Some(
+                                    "String",
+                                ),
+                            },
+                        ),
+                    ],
+                },
+                FunctionSignatureParam {
+                    kind: ClosurePropPreviousArg,
+                },
+            ],
+            module: Some(
+                "Swift",
+            ),
+        },
+        inner: Identifier(
+            Node { kind: Identifier, text: "foo" },
+        ),
+    },
+)
+
+--------
+
   Mangled: _T03foo6testityyyc_yyctF1a1bTf3pfpf_n
 Demangled: function signature specialization <Arg[0] = [Constant Propagated Function : a], Arg[1] = [Constant Propagated Function : b]> of foo.testit(() -> (), () -> ()) -> ()
 
@@ -16735,6 +16825,54 @@ Descriptor(
 
 --------
 
+  Mangled: $s4mini3SeqPxAA06BorrowB0TN
+Demangled: default associated conformance accessor for mini.Seq.A: mini.BorrowSeq
+
+Descriptor(
+    Descriptor {
+        kind: DefaultAssociatedConformanceAccessor,
+        described_type: Named(
+            NamedType {
+                module: Some(
+                    "mini",
+                ),
+                name: Some(
+                    "Seq",
+                ),
+            },
+        ),
+        module: Some(
+            "mini",
+        ),
+    },
+)
+
+--------
+
+  Mangled: $s4mini3SeqPxAA06BorrowB0Tn
+Demangled: associated conformance descriptor for mini.Seq.A: mini.BorrowSeq
+
+Descriptor(
+    Descriptor {
+        kind: AssociatedConformance,
+        described_type: Named(
+            NamedType {
+                module: Some(
+                    "mini",
+                ),
+                name: Some(
+                    "Seq",
+                ),
+            },
+        ),
+        module: Some(
+            "mini",
+        ),
+    },
+)
+
+--------
+
   Mangled: $s4Test6testityyxlFAA8MystructV_TB5
 Demangled: generic specialization <Test.Mystruct> of Test.testit<A>(A) -> ()
 
@@ -17337,6 +17475,28 @@ Metadata(
 
 --------
 
+  Mangled: $s16property_wrapper8MyStructV1xSivpfF
+Demangled: property wrapped field init accessor of property_wrapper.MyStruct.x : Swift.Int
+
+Metadata(
+    Metadata {
+        kind: PropertyWrappedFieldInitAccessor,
+    },
+)
+
+--------
+
+  Mangled: $s4main6myFuncyyF1xL_SivpfF
+Demangled: property wrapped field init accessor of x #1 : Swift.Int in main.myFunc() -> ()
+
+Metadata(
+    Metadata {
+        kind: PropertyWrappedFieldInitAccessor,
+    },
+)
+
+--------
+
   Mangled: $sSo17OS_dispatch_queueC4sync7executeyyyXE_tFTOTA
 Demangled: partial apply forwarder for @nonobjc __C.OS_dispatch_queue.sync(execute: () -> ()) -> ()
 
@@ -17728,6 +17888,35 @@ Type(
                     ),
                 },
             ],
+        },
+    ),
+)
+
+--------
+
+  Mangled: $sBpIetVy_D
+Demangled: @escaping @convention(thin) @convention(com_method) (@unowned Builtin.RawPointer) -> ()
+
+Type(
+    ImplFunction(
+        ImplFunctionType {
+            callee_convention: Some(
+                "@convention(thin)",
+            ),
+            is_escaping: true,
+            parameters: [
+                ImplParam {
+                    convention: Some(
+                        "@unowned",
+                    ),
+                    type_ref: Some(
+                        Builtin(
+                            "Builtin.RawPointer",
+                        ),
+                    ),
+                },
+            ],
+            results: [],
         },
     ),
 )
@@ -19131,6 +19320,34 @@ Thunk(
 
 --------
 
+  Mangled: $sTJSdSSSpSrSUSP
+Demangled: 
+
+Thunk(
+    AutoDiff(
+        AutoDiffThunk {
+            kind: SubsetParameters,
+            autodiff_function_kind: Some(
+                100,
+            ),
+            function: None,
+            function_type: None,
+            parameter_indices: Some(
+                "S",
+            ),
+            result_indices: Some(
+                "SSS",
+            ),
+            to_parameter_indices: Some(
+                "SUS",
+            ),
+            module: None,
+        },
+    ),
+)
+
+--------
+
   Mangled: $sS2f8mangling3FooV13TangentVectorVIegydd_SfAESfIegydd_TJOp
 Demangled: autodiff self-reordering reabstraction thunk for pullback from @escaping @callee_guaranteed (@unowned Swift.Float) -> (@unowned Swift.Float, @unowned mangling.Foo.TangentVector) to @escaping @callee_guaranteed (@unowned Swift.Float) -> (@unowned mangling.Foo.TangentVector, @unowned Swift.Float)
 
@@ -20301,8 +20518,8 @@ Function(
 
 --------
 
-  Mangled: $SSSTf4pd44444_pf
-Demangled: function signature specialization <Arg[0] = [Constant Propagated Float : 44444], Return = > of Swift.String
+  Mangled: $SSSTf4pd44444_n
+Demangled: function signature specialization <Arg[0] = [Constant Propagated Float : 44444]> of Swift.String
 
 Specialization(
     SpecializedSymbol {
@@ -21149,6 +21366,171 @@ Specialization(
                     convention: Swift,
                 },
             },
+        ),
+    },
+)
+
+--------
+
+  Mangled: $s3foo4main1SVs5Int32VSbTf3npSSi3Si0_n
+Demangled: function signature specialization <Arg[1] = [Constant Propagated Struct : main.S][Constant Propagated Struct : Swift.Int32][Constant Propagated Integer : 3][Constant Propagated Struct : Swift.Bool][Constant Propagated Integer : 0]> of foo
+
+Specialization(
+    SpecializedSymbol {
+        specialization: Specialization {
+            kind: FunctionSignature,
+            pass_id: Some(
+                3,
+            ),
+            function_signature_params: [
+                FunctionSignatureParam {
+                    kind: Unknown(
+                        0,
+                    ),
+                },
+                FunctionSignatureParam {
+                    kind: ConstantPropStruct,
+                    payloads: [
+                        "3",
+                        "0",
+                    ],
+                    types: [
+                        Named(
+                            NamedType {
+                                module: Some(
+                                    "main",
+                                ),
+                                name: Some(
+                                    "S",
+                                ),
+                            },
+                        ),
+                        Named(
+                            NamedType {
+                                module: Some(
+                                    "Swift",
+                                ),
+                                name: Some(
+                                    "Int32",
+                                ),
+                            },
+                        ),
+                        Named(
+                            NamedType {
+                                module: Some(
+                                    "Swift",
+                                ),
+                                name: Some(
+                                    "Bool",
+                                ),
+                            },
+                        ),
+                    ],
+                },
+            ],
+            module: Some(
+                "main",
+            ),
+        },
+        inner: Identifier(
+            Node { kind: Identifier, text: "foo" },
+        ),
+    },
+)
+
+--------
+
+  Mangled: $e4test4BaseCyxGAA1PA2aEP3fooyyFTWTfr9
+Demangled: representation changed of protocol witness for test.P.foo() -> () in conformance test.Base<A> : test.P in test
+
+Specialization(
+    SpecializedSymbol {
+        specialization: Specialization {
+            kind: FunctionSignature,
+            pass_id: Some(
+                9,
+            ),
+            module: None,
+        },
+        inner: Thunk(
+            ProtocolWitness(
+                ProtocolWitnessThunk {
+                    is_self_conformance: false,
+                    conformance: Some(
+                        ProtocolConformance {
+                            conforming_type: Some(
+                                Named(
+                                    NamedType {
+                                        module: Some(
+                                            "test",
+                                        ),
+                                        name: Some(
+                                            "Base",
+                                        ),
+                                        generic_args: [
+                                            GenericParam {
+                                                depth: 0,
+                                                index: 0,
+                                            },
+                                        ],
+                                    },
+                                ),
+                            ),
+                            protocol: Some(
+                                Named(
+                                    NamedType {
+                                        module: Some(
+                                            "test",
+                                        ),
+                                        name: Some(
+                                            "P",
+                                        ),
+                                    },
+                                ),
+                            ),
+                            module: Some(
+                                "test",
+                            ),
+                        },
+                    ),
+                    inner: Some(
+                        Function(
+                            Function {
+                                module: Some(
+                                    "test",
+                                ),
+                                containing_type: Some(
+                                    "P",
+                                ),
+                                name: Some(
+                                    "foo",
+                                ),
+                                labels: [],
+                                is_method: true,
+                                is_static: false,
+                                is_async: false,
+                                is_throwing: false,
+                                is_extension: false,
+                                is_generic: false,
+                                signature: FunctionType {
+                                    parameters: [],
+                                    return_type: Some(
+                                        Tuple(
+                                            [],
+                                        ),
+                                    ),
+                                    is_async: false,
+                                    is_throwing: false,
+                                    convention: Swift,
+                                },
+                            },
+                        ),
+                    ),
+                    module: Some(
+                        "test",
+                    ),
+                },
+            ),
         ),
     },
 )
@@ -23312,6 +23694,502 @@ Descriptor(
 
 --------
 
+  Mangled: $s5assoc9ncElementyyxAA1PRz0C0Rj_zlF
+Demangled: assoc.ncElement<A where A: assoc.P, A.Element: ~Swift.Copyable>(A) -> ()
+
+Function(
+    Function {
+        module: Some(
+            "assoc",
+        ),
+        containing_type: None,
+        name: Some(
+            "ncElement",
+        ),
+        labels: [],
+        is_method: false,
+        is_static: false,
+        is_async: false,
+        is_throwing: false,
+        is_extension: false,
+        is_generic: true,
+        signature: FunctionType {
+            parameters: [
+                FunctionParam {
+                    label: None,
+                    type_ref: GenericParam {
+                        depth: 0,
+                        index: 0,
+                    },
+                    is_variadic: false,
+                },
+            ],
+            return_type: Some(
+                Tuple(
+                    [],
+                ),
+            ),
+            is_async: false,
+            is_throwing: false,
+            convention: Swift,
+        },
+        generic_requirements: [
+            Conformance {
+                subject: Some(
+                    GenericParam {
+                        depth: 0,
+                        index: 0,
+                    },
+                ),
+                constraint: Some(
+                    Named(
+                        NamedType {
+                            module: Some(
+                                "assoc",
+                            ),
+                            name: Some(
+                                "P",
+                            ),
+                        },
+                    ),
+                ),
+            },
+        ],
+    },
+)
+
+--------
+
+  Mangled: $s5assoc6ncIteryyxAA1PRzlF
+Demangled: assoc.ncIter<A where A: assoc.P>(A) -> ()
+
+Function(
+    Function {
+        module: Some(
+            "assoc",
+        ),
+        containing_type: None,
+        name: Some(
+            "ncIter",
+        ),
+        labels: [],
+        is_method: false,
+        is_static: false,
+        is_async: false,
+        is_throwing: false,
+        is_extension: false,
+        is_generic: true,
+        signature: FunctionType {
+            parameters: [
+                FunctionParam {
+                    label: None,
+                    type_ref: GenericParam {
+                        depth: 0,
+                        index: 0,
+                    },
+                    is_variadic: false,
+                },
+            ],
+            return_type: Some(
+                Tuple(
+                    [],
+                ),
+            ),
+            is_async: false,
+            is_throwing: false,
+            convention: Swift,
+        },
+        generic_requirements: [
+            Conformance {
+                subject: Some(
+                    GenericParam {
+                        depth: 0,
+                        index: 0,
+                    },
+                ),
+                constraint: Some(
+                    Named(
+                        NamedType {
+                            module: Some(
+                                "assoc",
+                            ),
+                            name: Some(
+                                "P",
+                            ),
+                        },
+                    ),
+                ),
+            },
+        ],
+    },
+)
+
+--------
+
+  Mangled: $s5assoc6ncBothyyxAA1PRz7ElementRj_zlF
+Demangled: assoc.ncBoth<A where A: assoc.P, A.Element: ~Swift.Copyable>(A) -> ()
+
+Function(
+    Function {
+        module: Some(
+            "assoc",
+        ),
+        containing_type: None,
+        name: Some(
+            "ncBoth",
+        ),
+        labels: [],
+        is_method: false,
+        is_static: false,
+        is_async: false,
+        is_throwing: false,
+        is_extension: false,
+        is_generic: true,
+        signature: FunctionType {
+            parameters: [
+                FunctionParam {
+                    label: None,
+                    type_ref: GenericParam {
+                        depth: 0,
+                        index: 0,
+                    },
+                    is_variadic: false,
+                },
+            ],
+            return_type: Some(
+                Tuple(
+                    [],
+                ),
+            ),
+            is_async: false,
+            is_throwing: false,
+            convention: Swift,
+        },
+        generic_requirements: [
+            Conformance {
+                subject: Some(
+                    GenericParam {
+                        depth: 0,
+                        index: 0,
+                    },
+                ),
+                constraint: Some(
+                    Named(
+                        NamedType {
+                            module: Some(
+                                "assoc",
+                            ),
+                            name: Some(
+                                "P",
+                            ),
+                        },
+                    ),
+                ),
+            },
+        ],
+    },
+)
+
+--------
+
+  Mangled: $s5assoc12bothCopyableyyxAA1PRzs0C08IteratorRpzlF
+Demangled: assoc.bothCopyable<A where A: assoc.P, A.Iterator: Swift.Copyable>(A) -> ()
+
+Function(
+    Function {
+        module: Some(
+            "assoc",
+        ),
+        containing_type: None,
+        name: Some(
+            "bothCopyable",
+        ),
+        labels: [],
+        is_method: false,
+        is_static: false,
+        is_async: false,
+        is_throwing: false,
+        is_extension: false,
+        is_generic: true,
+        signature: FunctionType {
+            parameters: [
+                FunctionParam {
+                    label: None,
+                    type_ref: GenericParam {
+                        depth: 0,
+                        index: 0,
+                    },
+                    is_variadic: false,
+                },
+            ],
+            return_type: Some(
+                Tuple(
+                    [],
+                ),
+            ),
+            is_async: false,
+            is_throwing: false,
+            convention: Swift,
+        },
+        generic_requirements: [
+            Conformance {
+                subject: Some(
+                    GenericParam {
+                        depth: 0,
+                        index: 0,
+                    },
+                ),
+                constraint: Some(
+                    Named(
+                        NamedType {
+                            module: Some(
+                                "assoc",
+                            ),
+                            name: Some(
+                                "P",
+                            ),
+                        },
+                    ),
+                ),
+            },
+            Conformance {
+                subject: Some(
+                    AssociatedType {
+                        base: GenericParam {
+                            depth: 0,
+                            index: 0,
+                        },
+                        name: Some(
+                            "Iterator",
+                        ),
+                    },
+                ),
+                constraint: Some(
+                    Named(
+                        NamedType {
+                            module: Some(
+                                "Swift",
+                            ),
+                            name: Some(
+                                "Copyable",
+                            ),
+                        },
+                    ),
+                ),
+            },
+        ],
+    },
+)
+
+--------
+
+  Mangled: $s5assoc6HolderVAARi_z7ElementRj_zrlE02ncC0yyqd__AA1PRd__ADRj_d__lF
+Demangled: (extension in assoc):assoc.Holder< where A: ~Swift.Copyable, A.Element: ~Swift.Copyable>.ncElement<A where A1: assoc.P, A1.Element: ~Swift.Copyable>(A1) -> ()
+
+Function(
+    Function {
+        module: Some(
+            "assoc",
+        ),
+        containing_type: Some(
+            "Holder",
+        ),
+        name: Some(
+            "ncElement",
+        ),
+        labels: [],
+        is_method: true,
+        is_static: false,
+        is_async: false,
+        is_throwing: false,
+        is_extension: true,
+        is_generic: true,
+        signature: FunctionType {
+            parameters: [
+                FunctionParam {
+                    label: None,
+                    type_ref: GenericParam {
+                        depth: 1,
+                        index: 0,
+                    },
+                    is_variadic: false,
+                },
+            ],
+            return_type: Some(
+                Tuple(
+                    [],
+                ),
+            ),
+            is_async: false,
+            is_throwing: false,
+            convention: Swift,
+        },
+        extension_module: Some(
+            "assoc",
+        ),
+        generic_requirements: [
+            Conformance {
+                subject: Some(
+                    GenericParam {
+                        depth: 1,
+                        index: 0,
+                    },
+                ),
+                constraint: Some(
+                    Named(
+                        NamedType {
+                            module: Some(
+                                "assoc",
+                            ),
+                            name: Some(
+                                "P",
+                            ),
+                        },
+                    ),
+                ),
+            },
+        ],
+    },
+)
+
+--------
+
+  Mangled: $s5assoc6HolderVAA7ElementRj_zrlE19forceIntoInterface5yyF
+Demangled: (extension in assoc):assoc.Holder< where A.Element: ~Swift.Copyable>.forceIntoInterface5() -> ()
+
+Function(
+    Function {
+        module: Some(
+            "assoc",
+        ),
+        containing_type: Some(
+            "Holder",
+        ),
+        name: Some(
+            "forceIntoInterface5",
+        ),
+        labels: [],
+        is_method: true,
+        is_static: false,
+        is_async: false,
+        is_throwing: false,
+        is_extension: true,
+        is_generic: true,
+        signature: FunctionType {
+            parameters: [],
+            return_type: Some(
+                Tuple(
+                    [],
+                ),
+            ),
+            is_async: false,
+            is_throwing: false,
+            convention: Swift,
+        },
+        extension_module: Some(
+            "assoc",
+        ),
+    },
+)
+
+--------
+
+  Mangled: $s5assoc6HolderVAARi_z7ElementRj_zrlE12copyableIteryyqd__AA1PRd__s8Copyable8IteratorRpd__lF
+Demangled: (extension in assoc):assoc.Holder< where A: ~Swift.Copyable, A.Element: ~Swift.Copyable>.copyableIter<A where A1: assoc.P, A1.Iterator: Swift.Copyable>(A1) -> ()
+
+Function(
+    Function {
+        module: Some(
+            "assoc",
+        ),
+        containing_type: Some(
+            "Holder",
+        ),
+        name: Some(
+            "copyableIter",
+        ),
+        labels: [],
+        is_method: true,
+        is_static: false,
+        is_async: false,
+        is_throwing: false,
+        is_extension: true,
+        is_generic: true,
+        signature: FunctionType {
+            parameters: [
+                FunctionParam {
+                    label: None,
+                    type_ref: GenericParam {
+                        depth: 1,
+                        index: 0,
+                    },
+                    is_variadic: false,
+                },
+            ],
+            return_type: Some(
+                Tuple(
+                    [],
+                ),
+            ),
+            is_async: false,
+            is_throwing: false,
+            convention: Swift,
+        },
+        extension_module: Some(
+            "assoc",
+        ),
+        generic_requirements: [
+            Conformance {
+                subject: Some(
+                    GenericParam {
+                        depth: 1,
+                        index: 0,
+                    },
+                ),
+                constraint: Some(
+                    Named(
+                        NamedType {
+                            module: Some(
+                                "assoc",
+                            ),
+                            name: Some(
+                                "P",
+                            ),
+                        },
+                    ),
+                ),
+            },
+            Conformance {
+                subject: Some(
+                    AssociatedType {
+                        base: GenericParam {
+                            depth: 1,
+                            index: 0,
+                        },
+                        name: Some(
+                            "Iterator",
+                        ),
+                    },
+                ),
+                constraint: Some(
+                    Named(
+                        NamedType {
+                            module: Some(
+                                "Swift",
+                            ),
+                            name: Some(
+                                "Copyable",
+                            ),
+                        },
+                    ),
+                ),
+            },
+        ],
+    },
+)
+
+--------
+
   Mangled: $s23variadic_generic_opaque2G2VyAA2S1V_AA2S2VQPGAA1PHPAeA1QHPyHC_AgaJHPyHCHX_HC
 Demangled: concrete protocol conformance variadic_generic_opaque.G2<Pack{variadic_generic_opaque.S1, variadic_generic_opaque.S2}> to protocol conformance ref (type's module) variadic_generic_opaque.P with conditional requirements: (pack protocol conformance (concrete protocol conformance variadic_generic_opaque.S1 to protocol conformance ref (type's module) variadic_generic_opaque.Q, concrete protocol conformance variadic_generic_opaque.S2 to protocol conformance ref (type's module) variadic_generic_opaque.Q))
 
@@ -23429,7 +24307,7 @@ Type(
 --------
 
   Mangled: $s2hi1SV1iSivx
-Demangled: hi.S.i.modify2 : Swift.Int
+Demangled: hi.S.i.yielding_mutate : Swift.Int
 
 Accessor(
     Accessor {
@@ -23466,7 +24344,7 @@ Accessor(
 --------
 
   Mangled: $s2hi1SV1iSivy
-Demangled: hi.S.i.read2 : Swift.Int
+Demangled: hi.S.i.yielding_borrow : Swift.Int
 
 Accessor(
     Accessor {
@@ -24036,7 +24914,7 @@ Function(
 --------
 
   Mangled: $s5thing1PP1sAA1SVvxTwc
-Demangled: coro function pointer to thing.P.s.modify2 : thing.S
+Demangled: coro function pointer to thing.P.s.yielding_mutate : thing.S
 
 Async(
     AsyncSymbol {
@@ -24255,7 +25133,7 @@ Function(
 --------
 
   Mangled: $s7Library1BC1iSivxTwd
-Demangled: default override of Library.B.i.modify2 : Swift.Int
+Demangled: default override of Library.B.i.yielding_mutate : Swift.Int
 
 Metadata(
     Metadata {
@@ -24297,7 +25175,7 @@ Metadata(
 --------
 
   Mangled: $s7Library1BC1iSivxTwdTwc
-Demangled: coro function pointer to default override of Library.B.i.modify2 : Swift.Int
+Demangled: coro function pointer to default override of Library.B.i.yielding_mutate : Swift.Int
 
 Async(
     AsyncSymbol {
@@ -24517,3 +25395,232 @@ Thunk(
         },
     ),
 )
+
+--------
+
+  Mangled: $sSiBW
+Demangled: Builtin.Borrow<Swift.Int>
+
+Type(
+    BuiltinBorrow(
+        Named(
+            NamedType {
+                module: Some(
+                    "Swift",
+                ),
+                name: Some(
+                    "Int",
+                ),
+            },
+        ),
+    ),
+)
+
+--------
+
+  Mangled: $sBAIeNghHgIL_BAytIeNghHgILr_TR
+Demangled: reabstraction thunk helper from @escaping @caller_isolated @callee_guaranteed @Sendable @async (@guaranteed Builtin.ImplicitActor) -> () to @escaping @caller_isolated @callee_guaranteed @Sendable @async (@guaranteed Builtin.ImplicitActor) -> (@out ())
+
+Thunk(
+    Reabstraction(
+        ReabstractionThunk {
+            target: Some(
+                ImplFunction(
+                    ImplFunctionType {
+                        callee_convention: Some(
+                            "@callee_guaranteed",
+                        ),
+                        is_escaping: true,
+                        parameters: [
+                            ImplParam {
+                                convention: Some(
+                                    "@guaranteed",
+                                ),
+                                type_ref: Some(
+                                    Builtin(
+                                        "Builtin.ImplicitActor",
+                                    ),
+                                ),
+                            },
+                        ],
+                        results: [
+                            ImplResult {
+                                convention: Some(
+                                    "@out",
+                                ),
+                                type_ref: Some(
+                                    Tuple(
+                                        [],
+                                    ),
+                                ),
+                            },
+                        ],
+                    },
+                ),
+            ),
+            source: Some(
+                ImplFunction(
+                    ImplFunctionType {
+                        callee_convention: Some(
+                            "@callee_guaranteed",
+                        ),
+                        is_escaping: true,
+                        parameters: [
+                            ImplParam {
+                                convention: Some(
+                                    "@guaranteed",
+                                ),
+                                type_ref: Some(
+                                    Builtin(
+                                        "Builtin.ImplicitActor",
+                                    ),
+                                ),
+                            },
+                        ],
+                        results: [],
+                    },
+                ),
+            ),
+            module: None,
+        },
+    ),
+)
+
+--------
+
+  Mangled: $s4main12testCallOnceyyyyXOnF
+Demangled: main.testCallOnce(__owned @called(once) () -> ()) -> ()
+
+Function(
+    Function {
+        module: Some(
+            "main",
+        ),
+        containing_type: None,
+        name: Some(
+            "testCallOnce",
+        ),
+        labels: [],
+        is_method: false,
+        is_static: false,
+        is_async: false,
+        is_throwing: false,
+        is_extension: false,
+        is_generic: false,
+        signature: FunctionType {
+            parameters: [
+                FunctionParam {
+                    label: None,
+                    type_ref: Owned(
+                        Function(
+                            FunctionType {
+                                parameters: [],
+                                return_type: Some(
+                                    Tuple(
+                                        [],
+                                    ),
+                                ),
+                                is_async: false,
+                                is_throwing: false,
+                                convention: Swift,
+                            },
+                        ),
+                    ),
+                    is_variadic: false,
+                },
+            ],
+            return_type: Some(
+                Tuple(
+                    [],
+                ),
+            ),
+            is_async: false,
+            is_throwing: false,
+            convention: Swift,
+        },
+    },
+)
+
+--------
+
+  Mangled: async_Main
+Demangled: async main entry point
+
+Async(
+    AsyncSymbol {
+        kind: MainEntryPoint,
+    },
+)
+
+--------
+
+  Mangled: async_MainTY1_
+Demangled: (2) suspend resume partial function for async main entry point
+
+Async(
+    AsyncSymbol {
+        kind: SuspendResumePartial,
+        partial_index: 2,
+        inner: Async(
+            AsyncSymbol {
+                kind: MainEntryPoint,
+            },
+        ),
+    },
+)
+
+--------
+
+  Mangled: async_MainTQ0_
+Demangled: (1) await resume partial function for async main entry point
+
+Async(
+    AsyncSymbol {
+        kind: AwaitResumePartial,
+        partial_index: 1,
+        inner: Async(
+            AsyncSymbol {
+                kind: MainEntryPoint,
+            },
+        ),
+    },
+)
+
+--------
+
+  Mangled: async_MainTu
+Demangled: async function pointer to async main entry point
+
+Async(
+    AsyncSymbol {
+        kind: FunctionPointer,
+        inner: Async(
+            AsyncSymbol {
+                kind: MainEntryPoint,
+            },
+        ),
+    },
+)
+
+--------
+
+  Mangled: _async_MainTY1_
+Demangled: (2) suspend resume partial function for async main entry point
+
+Async(
+    AsyncSymbol {
+        kind: SuspendResumePartial,
+        partial_index: 2,
+        inner: Async(
+            AsyncSymbol {
+                kind: MainEntryPoint,
+            },
+        ),
+    },
+)
+
+--------
+
+  Mangled: $s1AyycfcySiGfD1BV
+
+(failed to parse)

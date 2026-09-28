@@ -166,25 +166,6 @@ public:
   }
 };
 
-/// DEPRECATED. AsyncLetWithBufferTaskOptionRecord is used instead.
-/// Task option to specify that the created task is for an 'async let'.
-class AsyncLetTaskOptionRecord : public TaskOptionRecord {
-  AsyncLet *asyncLet;
-
-public:
-  AsyncLetTaskOptionRecord(AsyncLet *asyncLet)
-    : TaskOptionRecord(TaskOptionRecordKind::AsyncLet),
-      asyncLet(asyncLet) {}
-
-  AsyncLet *getAsyncLet() const {
-    return asyncLet;
-  }
-
-  static bool classof(const TaskOptionRecord *record) {
-    return record->getKind() == TaskOptionRecordKind::AsyncLet;
-  }
-};
-
 class AsyncLetWithBufferTaskOptionRecord : public TaskOptionRecord {
   AsyncLet *asyncLet;
   void *resultBuffer;
@@ -199,7 +180,7 @@ public:
   AsyncLet *getAsyncLet() const {
     return asyncLet;
   }
-  
+
   void *getResultBuffer() const {
     return resultBuffer;
   }
@@ -215,16 +196,16 @@ class ResultTypeInfoTaskOptionRecord : public TaskOptionRecord {
   size_t size;
   size_t alignMask;
 
-  void (*__ptrauth_swift_value_witness_function_pointer(
+  OpaqueValue *(*__ptrauth_swift_value_witness_function_pointer(
       SpecialPointerAuthDiscriminators::InitializeWithCopy)
-            initializeWithCopy)(OpaqueValue *, OpaqueValue *);
+            initializeWithCopy)(OpaqueValue *, OpaqueValue *, void *);
 
   void (*__ptrauth_swift_value_witness_function_pointer(
       SpecialPointerAuthDiscriminators::StoreEnumTagSinglePayload)
-            storeEnumTagSinglePayload)(OpaqueValue *, unsigned, unsigned);
+            storeEnumTagSinglePayload)(OpaqueValue *, unsigned, unsigned, void *);
 
   void (*__ptrauth_swift_value_witness_function_pointer(
-      SpecialPointerAuthDiscriminators::Destroy) destroy)(OpaqueValue *);
+      SpecialPointerAuthDiscriminators::Destroy) destroy)(OpaqueValue *, void *);
 
   static bool classof(const TaskOptionRecord *record) {
     return record->getKind() == TaskOptionRecordKind::ResultTypeInfo;

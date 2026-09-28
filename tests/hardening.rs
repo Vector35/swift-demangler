@@ -38,6 +38,44 @@ fn exercise(mangled: &str) -> Option<String> {
 }
 
 #[test]
+fn keeps_working() {
+    let long_identifier = format!("f{}", "2147483647x".repeat(17));
+    let cases = [
+        (
+            "$s4main5helloSSyYaKF".to_string(),
+            "main.hello() async throws -> Swift.String".to_string(),
+        ),
+        (
+            "$s4main1fyySizF".into(),
+            "main.f(inout Swift.Int) -> ()".into(),
+        ),
+        ("$s4main1fyyxlF".into(), "main.f<A>(A) -> ()".into()),
+        ("$s4main1fyyq_r0_lF".into(), "main.f<A, B>(B) -> ()".into()),
+        (
+            "$s4main11f2147483647yyF".into(),
+            "main.f2147483647() -> ()".into(),
+        ),
+        (
+            "$s11a214748364711b2147483647yyF".into(),
+            "a2147483647.b2147483647() -> ()".into(),
+        ),
+        (
+            format!("$s4main{}{long_identifier}yyF", long_identifier.len()),
+            format!("main.{long_identifier}() -> ()"),
+        ),
+    ];
+    on_small_stack(move || {
+        for (mangled, expected) in cases {
+            assert_eq!(
+                exercise(&mangled).as_deref(),
+                Some(expected.as_str()),
+                "{mangled}"
+            );
+        }
+    });
+}
+
+#[test]
 fn real_symbols() {
     let cases = [
         // SwiftPM (Xcode 26.5), depth 42.
@@ -54,6 +92,24 @@ fn real_symbols() {
         for mangled in cases {
             let demangled = exercise(mangled).unwrap_or_else(|| panic!("{mangled} failed"));
             assert!(!demangled.contains("<<too complex>>"), "{mangled}");
+        }
+    });
+}
+
+/// Inputs that must fail.
+const MUST_FAIL: &[&str] = &[
+    "$sSiTQ2147483647_",
+    "$s999999999999999999999999",
+    "$s4main5helloSSyYaKFTQ2147483647_",
+    "$s4main1fyyq2147483646_lF",
+    "$s4main1fyyqd2147483646__lF",
+];
+
+#[test]
+fn fails_cleanly() {
+    on_small_stack(|| {
+        for mangled in MUST_FAIL {
+            assert_eq!(exercise(mangled), None, "{mangled}");
         }
     });
 }

@@ -19,11 +19,12 @@
 
 #include <atomic>
 #include <iterator>
-#include <string>
+#include <limits>
 #include <type_traits>
 #include <utility>
 #include <string.h>
 #include "llvm/ADT/ArrayRef.h"
+#include "llvm/Support/MathExtras.h"
 #include "swift/Strings.h"
 #include "swift/Runtime/Config.h"
 #include "swift/Runtime/Once.h"
@@ -34,12 +35,20 @@
 #include "swift/ABI/TargetLayout.h"
 #include "swift/ABI/TrailingObjects.h"
 #include "swift/ABI/ValueWitnessTable.h"
+// Malloc.h (AlignedAlloc/AlignedFree) is not used by anything in this file;
+// it's included here only for the benefit of clients that don't include it
+// themselves. Its posix_memalign/aligned_alloc usage is hosted-only, and all
+// real callers of AlignedAlloc/AlignedFree are hosted-only compiler code
+// (lib/AST, lib/SIL, lib/SILOptimizer), so keep this hosted-only.
+#if __STDC_HOSTED__
 #include "swift/Basic/Malloc.h"
+#endif
 #include "swift/Basic/FlaggedPointer.h"
 #include "swift/Basic/RelativePointer.h"
 #include "swift/Demangling/Demangle.h"
 #include "swift/Demangling/ManglingMacros.h"
 #include "swift/Basic/Unreachable.h"
+#include "swift/shims/Metadata.h"
 #include "swift/shims/HeapObject.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/Support/Casting.h"
@@ -193,6 +202,16 @@ static inline FullMetadata<T> *asFullMetadata(T *metadata) {
 template <class T>
 static inline const FullMetadata<T> *asFullMetadata(const T *metadata) {
   return asFullMetadata(const_cast<T*>(metadata));
+}
+
+/// Given a full metadata pointer, produce the regular metadata pointer.
+template <class T>
+static inline T *asMetadata(FullMetadata<T> *metadata) {
+  return (T *) (((typename T::HeaderType*) metadata) + 1);
+}
+template <class T>
+static inline const T *asMetadata(const FullMetadata<T> *metadata) {
+  return asMetadata(const_cast<FullMetadata<T> *>(metadata));
 }
 
 // std::result_of is busted in Xcode 5. This is a simplified reimplementation
@@ -1043,6 +1062,8 @@ public:
   }
   void setInstanceSize(StoredSize size) {
     assert(isTypeMetadata());
+    assert(size <= std::numeric_limits<decltype(InstanceSize)>::max() &&
+           "class instance size does not fit in the InstanceSize field");
     InstanceSize = size;
   }
 
@@ -1052,6 +1073,9 @@ public:
   }
   void setInstanceAddressPoint(StoredSize size) {
     assert(isTypeMetadata());
+    assert(size <= std::numeric_limits<decltype(InstanceAddressPoint)>::max() &&
+           "class instance address point does not fit in the "
+           "InstanceAddressPoint field");
     InstanceAddressPoint = size;
   }
 
@@ -1740,6 +1764,17 @@ struct TargetFixedArrayTypeMetadata : public TargetMetadata<Runtime> {
 };
 using FixedArrayTypeMetadata = TargetFixedArrayTypeMetadata<InProcess>;
 
+/// The structure of `Builtin.Borrow` type metadata.
+template <typename Runtime>
+struct TargetBorrowTypeMetadata : public TargetMetadata<Runtime> {
+  ConstTargetMetadataPointer<Runtime, swift::TargetMetadata> Referent;
+
+  static bool classof(const TargetMetadata<Runtime> *metadata) {
+    return metadata->getKind() == MetadataKind::Borrow;
+  }
+};
+using BorrowTypeMetadata = TargetBorrowTypeMetadata<InProcess>;
+
 /// The structure of tuple type metadata.
 template <typename Runtime>
 struct TargetTupleTypeMetadata : public TargetMetadata<Runtime> {
@@ -1810,6 +1845,11 @@ constexpr inline auto
 TargetTupleTypeMetadata<Runtime>::getOffsetToNumElements() -> StoredSize {
   return offsetof(TargetTupleTypeMetadata<Runtime>, NumElements);
 }
+
+template <typename Runtime>
+struct TargetCOMInterfaceID {
+  uint8_t Bytes[16];
+};
 
 template <typename Runtime>
 struct swift_ptrauth_struct_context_descriptor(ProtocolDescriptor)
@@ -1917,6 +1957,8 @@ enum class ExistentialTypeRepresentation {
   Class,
   /// The type uses the Error boxed existential representation.
   Error,
+  /// The type is represented by a single COM interface pointer.
+  COM,
 };
 
 /// The structure of type metadata for simple existential types which
@@ -2172,7 +2214,7 @@ private:
     if (!Flags.hasTypePacks())
       return 0;
 
-    return getGenSigPackShapeHeader().NumTypePacks;
+    return getGenSigPackShapeHeader().NumPacks;
   }
 
   const TargetGenericContextDescriptorHeader<Runtime> *
@@ -2579,13 +2621,29 @@ struct TargetGenericBoxHeapMetadata : public TargetBoxHeapMetadata<Runtime> {
     return reinterpret_cast<OpaqueValue *>(bytes + Offset);
   }
 
-  /// Get the allocation size of this box.
-  unsigned getAllocSize() const {
-    return Offset + BoxedType->getValueWitnesses()->getSize();
+  typename Runtime::StoredSize getAllocSize() const {
+    using StoredSize = typename Runtime::StoredSize;
+    return (StoredSize)Offset +
+           (StoredSize)BoxedType->getValueWitnesses()->getSize();
+  }
+
+  /// Get the allocation size of this box, writing it into \p result. Returns
+  /// false if the calculation overflowed and the size is not representable.
+  bool
+  getAllocSizeCheckingOverflow(typename Runtime::StoredSize &result) const {
+    using StoredSize = typename Runtime::StoredSize;
+    bool overflowed = false;
+    StoredSize size = llvm::SaturatingAdd(
+        (StoredSize)Offset,
+        (StoredSize)BoxedType->getValueWitnesses()->getSize(), &overflowed);
+    if (overflowed)
+      return false;
+    result = size;
+    return true;
   }
 
   /// Get the allocation alignment of this box.
-  unsigned getAllocAlignMask() const {
+  typename Runtime::StoredSize getAllocAlignMask() const {
     // Heap allocations are at least pointer aligned.
     return BoxedType->getValueWitnesses()->getAlignmentMask()
       | (alignof(void*) - 1);
@@ -3100,6 +3158,22 @@ struct swift_ptrauth_struct_context_descriptor(ContextDescriptor)
   const InvertibleProtocolSet *
   getInvertedProtocols() const;
 
+  /// Whether this type's primary definition is `~Protocol` and has no
+  /// conditional conformance to the protocol.
+  bool isUnconditionallySuppressing(InvertibleProtocolKind kind) const {
+    auto *inverted = getInvertedProtocols();
+    if (!inverted || !inverted->contains(kind))
+      return false;
+
+    if (auto *genericContext = getGenericContext()) {
+      if (genericContext->hasConditionalInvertedProtocols() &&
+          genericContext->getConditionalInvertedProtocols().contains(kind))
+        return false;
+    }
+
+    return true;
+  }
+
   /// Is this context part of a C-imported module?
   bool isCImportedContext() const;
 
@@ -3308,15 +3382,18 @@ struct swift_ptrauth_struct_context_descriptor(ProtocolDescriptor)
     : TargetContextDescriptor<Runtime>,
       swift::ABI::TrailingObjects<
         TargetProtocolDescriptor<Runtime>,
+        TargetCOMInterfaceID<Runtime>,
         TargetGenericRequirementDescriptor<Runtime>,
         TargetProtocolRequirement<Runtime>>
 {
 private:
-  using TrailingObjects
-    = swift::ABI::TrailingObjects<
-        TargetProtocolDescriptor<Runtime>,
-        TargetGenericRequirementDescriptor<Runtime>,
-        TargetProtocolRequirement<Runtime>>;
+  using COMInterfaceID = TargetCOMInterfaceID<Runtime>;
+
+  using TrailingObjects =
+      swift::ABI::TrailingObjects<TargetProtocolDescriptor<Runtime>,
+                                  COMInterfaceID,
+                                  TargetGenericRequirementDescriptor<Runtime>,
+                                  TargetProtocolRequirement<Runtime>>;
 
   friend TrailingObjects;
 
@@ -3324,6 +3401,12 @@ private:
   using OverloadToken = typename TrailingObjects::template OverloadToken<T>;
 
 public:
+  size_t numTrailingObjects(OverloadToken<COMInterfaceID>) const {
+    SpecialProtocol protocol =
+        getProtocolContextDescriptorFlags().getSpecialProtocol();
+    return protocol == SpecialProtocol::COM ? 1 : 0;
+  }
+
   size_t numTrailingObjects(
             OverloadToken<TargetGenericRequirementDescriptor<Runtime>>) const {
     return NumRequirementsInSignature;
@@ -3354,6 +3437,20 @@ public:
 
   ProtocolContextDescriptorFlags getProtocolContextDescriptorFlags() const {
     return ProtocolContextDescriptorFlags(this->Flags.getKindSpecificFlags());
+  }
+
+  /// Retrieve the target-native 16-byte interface identifier for this COM
+  /// interface protocol.
+  ///
+  /// A COM protocol descriptor carries the bytes inline immediately after its
+  /// fixed header. Other protocol descriptors have no such trailing field,
+  /// preserving their existing layout.
+  const uint8_t *getCOMInterfaceID() const {
+    SpecialProtocol protocol =
+        getProtocolContextDescriptorFlags().getSpecialProtocol();
+    if (protocol == SpecialProtocol::COM)
+      return this->template getTrailingObjects<COMInterfaceID>()->Bytes;
+    return nullptr;
   }
 
   /// Retrieve the requirements that make up the requirement signature of
@@ -3392,6 +3489,9 @@ public:
     return cd->getKind() == ContextDescriptorKind::Protocol;
   }
 };
+
+static_assert(sizeof(_SwiftProtocolDescriptorHeader) == sizeof(TargetProtocolDescriptor<InProcess>),
+              "_SwiftProtocolDescriptorHeader does not match TargetProtocolDescriptor");
 
 /// The descriptor for an opaque type.
 template <typename Runtime>
@@ -3983,7 +4083,10 @@ struct TargetCanonicalSpecializedMetadatasListEntry {
 
 template <typename Runtime>
 struct TargetCanonicalSpecializedMetadataAccessorsListEntry {
-  TargetCompactFunctionPointer<Runtime, MetadataResponse(MetadataRequest), /*Nullable*/ false> accessor;
+  TargetCompactFunctionPointer<
+      Runtime, SWIFT_CC(swift) MetadataResponse(MetadataRequest),
+      /*Nullable*/ false>
+      accessor;
 };
 
 template <typename Runtime>
@@ -4297,8 +4400,9 @@ public:
     TargetCanonicalSpecializedMetadatasListCount<Runtime>;
   using MetadataListEntry = 
     TargetCanonicalSpecializedMetadatasListEntry<Runtime>;
-  using MetadataAccessor = 
-    TargetCompactFunctionPointer<Runtime, MetadataResponse(MetadataRequest), /*Nullable*/ false>;
+  using MetadataAccessor = TargetCompactFunctionPointer<
+      Runtime, SWIFT_CC(swift) MetadataResponse(MetadataRequest),
+      /*Nullable*/ false>;
   using MetadataAccessorListEntry =
       TargetCanonicalSpecializedMetadataAccessorsListEntry<Runtime>;
   using MetadataCachingOnceToken =

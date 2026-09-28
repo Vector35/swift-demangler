@@ -47,8 +47,10 @@ impl<'ctx> Accessor<'ctx> {
         match self.raw.kind() {
             NodeKind::Getter => AccessorKind::Getter,
             NodeKind::Setter => AccessorKind::Setter,
-            NodeKind::ModifyAccessor | NodeKind::Modify2Accessor => AccessorKind::Modify,
-            NodeKind::ReadAccessor | NodeKind::Read2Accessor => AccessorKind::Read,
+            NodeKind::ModifyAccessor | NodeKind::YieldingMutateAccessor => AccessorKind::Modify,
+            NodeKind::ReadAccessor | NodeKind::YieldingBorrowAccessor => AccessorKind::Read,
+            NodeKind::BorrowAccessor => AccessorKind::Borrow,
+            NodeKind::MutateAccessor => AccessorKind::Mutate,
             NodeKind::WillSet => AccessorKind::WillSet,
             NodeKind::DidSet => AccessorKind::DidSet,
             NodeKind::GlobalGetter => AccessorKind::GlobalGetter,
@@ -241,6 +243,7 @@ impl<'ctx> Accessor<'ctx> {
             self.kind(),
             AccessorKind::Setter
                 | AccessorKind::Modify
+                | AccessorKind::Mutate
                 | AccessorKind::WillSet
                 | AccessorKind::DidSet
                 | AccessorKind::MaterializeForSet
@@ -348,6 +351,10 @@ pub enum AccessorKind {
     Modify,
     /// A read accessor (for borrowing).
     Read,
+    /// A `borrow` accessor.
+    Borrow,
+    /// A `mutate` accessor.
+    Mutate,
     /// A willSet observer.
     WillSet,
     /// A didSet observer.
@@ -388,6 +395,8 @@ impl AccessorKind {
             AccessorKind::Setter => "setter",
             AccessorKind::Modify => "modify",
             AccessorKind::Read => "read",
+            AccessorKind::Borrow => "borrow",
+            AccessorKind::Mutate => "mutate",
             AccessorKind::WillSet => "willSet",
             AccessorKind::DidSet => "didSet",
             AccessorKind::GlobalGetter => "globalGetter",

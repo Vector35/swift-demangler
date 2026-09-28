@@ -102,6 +102,7 @@ impl<'ctx> TypeRef<'ctx> {
             // Function types
             NodeKind::FunctionType
             | NodeKind::NoEscapeFunctionType
+            | NodeKind::CalledOnceFunctionType
             | NodeKind::CFunctionPointer
             | NodeKind::ThinFunctionType
             | NodeKind::AutoClosureType
@@ -213,6 +214,9 @@ impl<'ctx> TypeRef<'ctx> {
                     .map(|n| Box::new(TypeRef::new(n)));
                 TypeKind::BuiltinFixedArray { size, element }
             }
+
+            // Builtin borrow: BuiltinBorrow -> Type -> referent
+            NodeKind::BuiltinBorrow => self.wrap_nested_child(TypeKind::BuiltinBorrow),
 
             // InOut types
             NodeKind::InOut => self.wrap_child(TypeKind::InOut),
@@ -436,6 +440,8 @@ pub enum TypeKind<'ctx> {
         size: Option<i64>,
         element: Option<Box<TypeRef<'ctx>>>,
     },
+    /// A builtin borrow type (`Builtin.Borrow<T>`).
+    BuiltinBorrow(Box<TypeRef<'ctx>>),
     /// An inout parameter type.
     InOut(Box<TypeRef<'ctx>>),
     /// A shared/borrowed parameter type (`__shared` / `borrowing`).
@@ -887,6 +893,19 @@ impl<'ctx> FunctionType<'ctx> {
         )
     }
 
+    /// Check if this is a `@called(once)` function type.
+    pub fn is_called_once(&self) -> bool {
+        self.raw.kind() == NodeKind::CalledOnceFunctionType
+    }
+
+    /// Get the types yielded by this coroutine function type, if any.
+    pub fn yield_types(&self) -> Option<TypeRef<'ctx>> {
+        self.raw
+            .child_of_kind(NodeKind::YieldTypes)
+            .and_then(|y| y.child(0))
+            .map(|t| TypeRef::new(t.unwrap_if_kind(NodeKind::Type).unwrap_or(t)))
+    }
+
     /// Check if this is an autoclosure.
     pub fn is_autoclosure(&self) -> bool {
         matches!(
@@ -1000,6 +1019,20 @@ impl<'ctx> ImplFunctionType<'ctx> {
         self.raw
             .children()
             .any(|c| c.kind() == NodeKind::ImplEscaping)
+    }
+
+    /// Check if this function is `@called(once)`.
+    pub fn is_called_once(&self) -> bool {
+        self.raw
+            .children()
+            .any(|c| c.kind() == NodeKind::ImplCalledOnceFunction)
+    }
+
+    /// Check if this function has caller isolation (`nonisolated(nonsending)`).
+    pub fn is_caller_isolated(&self) -> bool {
+        self.raw
+            .children()
+            .any(|c| c.kind() == NodeKind::ImplNonisolatedNonsendingIsolation)
     }
 
     /// Check if this function has a sending result.

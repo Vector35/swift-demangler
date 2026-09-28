@@ -25,7 +25,9 @@
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/StringRef.h"
+#include "llvm/Support/Compiler.h"
 #include "llvm/Support/DataTypes.h"
+#include "llvm/Support/raw_ostream.h"
 #include <cassert>
 #include <cstdio>
 #include <optional>
@@ -34,24 +36,44 @@
 
 namespace llvm {
 
-/// This is a helper class used for handling formatted output.  It is the
-/// abstract base class of a templated derived class.
-class format_object_base {
-protected:
-  const char *Fmt;
-  ~format_object_base() = default; // Disallow polymorphic deletion.
-  format_object_base(const format_object_base &) = default;
-  virtual void home(); // Out of line virtual method.
+/// These are templated helper classes used by the format function that
+/// capture the object to be formatted and the format string. When actually
+/// printed, this synthesizes the string into a temporary buffer provided and
+/// returns whether or not it is big enough.
 
-  /// Call snprintf() for this object, on the given buffer and size.
-  virtual int snprint(char *Buffer, unsigned BufferSize) const = 0;
+// Helper to validate that format() parameters are scalars or pointers.
+template <typename... Args> struct validate_format_parameters;
+template <typename Arg, typename... Args>
+struct validate_format_parameters<Arg, Args...> {
+  static_assert(std::is_scalar_v<Arg>,
+                "format can't be used with non fundamental / non pointer type");
+  validate_format_parameters() { validate_format_parameters<Args...>(); }
+};
+template <> struct validate_format_parameters<> {};
+
+template <typename... Ts> class format_object {
+  const char *Fmt;
+  std::tuple<Ts...> Vals;
+
+  template <std::size_t... Is>
+  int snprint_tuple(char *Buffer, unsigned BufferSize,
+                    std::index_sequence<Is...>) const {
+#ifdef _MSC_VER
+    return _snprintf(Buffer, BufferSize, Fmt, std::get<Is>(Vals)...);
+#else
+    return snprintf(Buffer, BufferSize, Fmt, std::get<Is>(Vals)...);
+#endif
+  }
 
 public:
-  format_object_base(const char *fmt) : Fmt(fmt) {}
+  format_object(const char *fmt, const Ts &...vals) : Fmt(fmt), Vals(vals...) {
+    validate_format_parameters<Ts...>();
+  }
 
-  /// Format the object into the specified buffer.  On success, this returns
-  /// the length of the formatted string.  If the buffer is too small, this
-  /// returns a length to retry with, which will be larger than BufferSize.
+  int snprint(char *Buffer, unsigned BufferSize) const {
+    return snprint_tuple(Buffer, BufferSize, std::index_sequence_for<Ts...>());
+  }
+
   unsigned print(char *Buffer, unsigned BufferSize) const {
     assert(BufferSize && "Invalid buffer size!");
 
@@ -72,45 +94,20 @@ public:
   }
 };
 
-/// These are templated helper classes used by the format function that
-/// capture the object to be formatted and the format string. When actually
-/// printed, this synthesizes the string into a temporary buffer provided and
-/// returns whether or not it is big enough.
-
-// Helper to validate that format() parameters are scalars or pointers.
-template <typename... Args> struct validate_format_parameters;
-template <typename Arg, typename... Args>
-struct validate_format_parameters<Arg, Args...> {
-  static_assert(std::is_scalar_v<Arg>,
-                "format can't be used with non fundamental / non pointer type");
-  validate_format_parameters() { validate_format_parameters<Args...>(); }
-};
-template <> struct validate_format_parameters<> {};
-
 template <typename... Ts>
-class format_object final : public format_object_base {
-  std::tuple<Ts...> Vals;
-
-  template <std::size_t... Is>
-  int snprint_tuple(char *Buffer, unsigned BufferSize,
-                    std::index_sequence<Is...>) const {
-#ifdef _MSC_VER
-    return _snprintf(Buffer, BufferSize, Fmt, std::get<Is>(Vals)...);
-#else
-    return snprintf(Buffer, BufferSize, Fmt, std::get<Is>(Vals)...);
-#endif
-  }
-
-public:
-  format_object(const char *fmt, const Ts &... vals)
-      : format_object_base(fmt), Vals(vals...) {
-    validate_format_parameters<Ts...>();
-  }
-
-  int snprint(char *Buffer, unsigned BufferSize) const override {
-    return snprint_tuple(Buffer, BufferSize, std::index_sequence_for<Ts...>());
-  }
-};
+raw_ostream &operator<<(raw_ostream &OS, format_object<Ts...> Fmt) {
+  // Stream through an explicitly-typed function_ref. Passing the lambda
+  // directly is ambiguous when block pointer conversions are enabled due to a
+  // competing raw_ostream::operator<<(const void *) candidate. This ambiguity
+  // affects the Swift compiler because it contains Swift code that
+  // interoperates with C++ code that instantiates this template, and Swift's
+  // C++ interoperability enables block pointer conversions.
+  auto Print = [&Fmt](char *Buf, size_t Size) -> size_t {
+    return Fmt.print(Buf, Size);
+  };
+  OS << function_ref<size_t(char *, size_t)>(Print);
+  return OS;
+}
 
 /// These are helper functions used to produce formatted output.  They use
 /// template type deduction to construct the appropriate instance of the

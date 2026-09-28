@@ -21,12 +21,19 @@
 #include "llvm/Support/Casting.h"
 #include <algorithm>
 #include <cassert>
-#include <functional>
 #include <iterator>
 #include <numeric>
 #include <optional>
 #include <type_traits>
+// <functional> and <unordered_set> are only needed for the std::function
+// function_traits specialization and the std::unordered_set erase_if
+// overload below, which are never used by the embedded runtime (which
+// doesn't use std::function or std::unordered_set). GCC's libstdc++ hard-
+// errors on both headers under -ffreestanding, so keep them hosted-only.
+#if __STDC_HOSTED__
+#include <functional>
 #include <unordered_set>
+#endif
 
 namespace swift {
 
@@ -50,11 +57,13 @@ template <class R, class... Args> struct function_traits<R (*)(Args...)> {
 };
 
 // std::function
+#if __STDC_HOSTED__
 template <class R, class... Args>
 struct function_traits<std::function<R(Args...)>> {
   using result_type = R;
   using argument_types = std::tuple<Args...>;
 };
+#endif
 
 // pointer-to-member-function (i.e., operator()'s)
 template <class T, class R, class... Args>
@@ -754,6 +763,7 @@ using are_all_compound = all_true<std::is_compound<Ts>::value...>;
 
 /// Erase all elements in \p c that match the given predicate \p pred.
 // FIXME: Remove this when C++20 is the new baseline.
+#if __STDC_HOSTED__
 template <class Key, class Hash, class KeyEqual, class Alloc, class Pred>
 typename std::unordered_set<Key, Hash, KeyEqual, Alloc>::size_type
 erase_if(std::unordered_set<Key, Hash, KeyEqual, Alloc> &c, Pred pred) {
@@ -767,6 +777,7 @@ erase_if(std::unordered_set<Key, Hash, KeyEqual, Alloc> &c, Pred pred) {
   }
   return startingSize - c.size();
 }
+#endif
 
 /// Call \c vector.emplace_back with each of the other arguments
 /// to this function, in order.  Constructing an intermediate
@@ -793,6 +804,82 @@ auto transform(const std::optional<OptionalElement> &value,
   }
   return std::nullopt;
 }
+
+/// A little wrapper that either wraps a `T &&` or a `const T &`.
+/// It allows you to defer the optimal decision about how to
+/// forward the value to runtime.
+template <class T>
+class maybe_movable_ref {
+  /// Actually a T&& if movable is true.
+  const T &ref;
+  bool movable;
+
+public:
+  // The maybe_movable_ref wrapper itself is, basically, either an
+  // r-value reference or an l-value reference. It is therefore
+  // move-only so that code working with it has to properly
+  // forward it around.
+  maybe_movable_ref(maybe_movable_ref &&other) = default;
+  maybe_movable_ref &operator=(maybe_movable_ref &&other) = default;
+
+  maybe_movable_ref(const maybe_movable_ref &other) = delete;
+  maybe_movable_ref &operator=(const maybe_movable_ref &other) = delete;
+
+  /// Allow the wrapper to be statically constructed from an r-value
+  /// reference in the movable state.
+  maybe_movable_ref(T &&ref) : ref(ref), movable(true) {}
+
+  /// Allow the wrapper to be statically constructed from a
+  /// const l-value reference in the non-movable state.
+  maybe_movable_ref(const T &ref) : ref(ref), movable(false) {}
+
+  /// Don't allow the wrapper to be statically constructed from
+  /// a non-const l-value reference without passing a flag
+  /// dynamically.
+  maybe_movable_ref(T &ref) = delete;
+
+  /// The fully-general constructor.
+  maybe_movable_ref(T &ref, bool movable) : ref(ref), movable(movable) {}
+
+  /// Check dynamically whether the reference is movable.
+  bool isMovable() const {
+    return movable;
+  }
+
+  /// Construct a T from the wrapped reference.
+  T construct() && {
+    if (isMovable()) {
+      return T(move());
+    } else {
+      return T(ref);
+    }
+  }
+
+  /// Get access to the value, conservatively returning a const
+  /// reference.
+  const T &get() const {
+    return ref;
+  }
+
+  /// Get access to the value, dynamically aserting that it is movable.
+  T &get_mutable() const {
+    assert(isMovable());
+    return const_cast<T&>(ref);
+  }
+
+  /// Return an r-value reference to the value, dynamically asserting
+  /// that it is movable.
+  T &&move() {
+    assert(isMovable());
+    return static_cast<T&&>(const_cast<T&>(ref));
+  }
+};
+
+template <class T>
+maybe_movable_ref<T> move_if(T &ref, bool movable) {
+  return maybe_movable_ref<T>(ref, movable);
+}
+
 } // end namespace swift
 
 #endif // SWIFT_BASIC_STLEXTRAS_H

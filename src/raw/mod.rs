@@ -53,6 +53,18 @@ use std::ptr::NonNull;
 
 pub use node_kinds::NodeKind;
 
+/// Aliases for node kinds that upstream Swift has renamed.
+#[allow(non_upper_case_globals)]
+impl NodeKind {
+    #[deprecated(note = "renamed to `NodeKind::YieldingMutateAccessor`")]
+    pub const Modify2Accessor: NodeKind = NodeKind::YieldingMutateAccessor;
+    #[deprecated(note = "renamed to `NodeKind::YieldingBorrowAccessor`")]
+    pub const Read2Accessor: NodeKind = NodeKind::YieldingBorrowAccessor;
+    #[deprecated(note = "renamed to `NodeKind::CheckedObjCAsyncCompletionHandlerImpl`")]
+    pub const PredefinedObjCAsyncCompletionHandlerImpl: NodeKind =
+        NodeKind::CheckedObjCAsyncCompletionHandlerImpl;
+}
+
 /// Demangle a Swift symbol to a human-readable string.
 ///
 /// Returns `None` if the symbol could not be demangled.

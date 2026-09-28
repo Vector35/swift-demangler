@@ -16,13 +16,11 @@
 
 #include "swift/Demangling/Demangle.h"
 #include "swift/Demangling/Demangler.h"
-#include "swift/Demangling/ManglingMacros.h"
 #include "swift/Demangling/ManglingUtils.h"
 #include "swift/Demangling/Punycode.h"
 #include "swift/Strings.h"
 #include <cstdio>
 #include <cstdlib>
-#include <functional>
 #include <optional>
 #include <vector>
 
@@ -528,7 +526,8 @@ private:
       if (!name || !Mangled.nextIf('_'))
         return false;
       parent->addChild(FUNCSIGSPEC_CREATE_PARAM_KIND(ConstantPropFunction), Factory);
-      parent->addChild(FUNCSIGSPEC_CREATE_PARAM_PAYLOAD(name->getText()), Factory);
+      NodePointer pl = Factory.createNode(Node::Kind::Identifier, name->getText());
+      parent->addChild(pl, Factory);
       return true;
     }
 
@@ -537,7 +536,8 @@ private:
       if (!name || !Mangled.nextIf('_'))
         return false;
       parent->addChild(FUNCSIGSPEC_CREATE_PARAM_KIND(ConstantPropGlobal), Factory);
-      parent->addChild(FUNCSIGSPEC_CREATE_PARAM_PAYLOAD(name->getText()), Factory);
+      NodePointer pl = Factory.createNode(Node::Kind::Identifier, name->getText());
+      parent->addChild(pl, Factory);
       return true;
     }
 
@@ -583,7 +583,8 @@ private:
 
       parent->addChild(FUNCSIGSPEC_CREATE_PARAM_KIND(ConstantPropString), Factory);
       parent->addChild(FUNCSIGSPEC_CREATE_PARAM_PAYLOAD(encodingStr), Factory);
-      parent->addChild(FUNCSIGSPEC_CREATE_PARAM_PAYLOAD(str->getText()), Factory);
+      NodePointer pl = Factory.createNode(Node::Kind::Identifier, str->getText());
+      parent->addChild(pl, Factory);
       return true;
     }
 
@@ -2403,6 +2404,9 @@ NodePointer
 swift::Demangle::demangleOldSymbolAsNode(StringRef MangledName,
                                          NodeFactory &Factory) {
   OldDemangler demangler(MangledName, Factory);
-  return demangler.demangleTopLevel();
+  NodePointer result = demangler.demangleTopLevel();
+  if (Factory.isTooComplex())
+    return nullptr;
+  return result;
 }
 

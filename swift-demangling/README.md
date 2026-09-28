@@ -118,10 +118,25 @@ The included `swift-demangle` CLI demonstrates the API:
 
 ## Updating Vendored Code
 
-The library vendors Swift demangling code and required LLVM headers in `vendor/`. To update to a newer Swift version, you'll need:
+The library vendors Swift demangling code and required LLVM headers in
+`vendor/`. Don't patch the vendored files. Work around upstream problems in
+`src/` or the Rust crate instead.
 
-- A Swift source checkout (e.g., from https://github.com/swiftlang/swift)
-- LLVM source (typically at `../llvm-project` relative to Swift)
+To update to a newer Swift version, you'll need:
+
+- A Swift source checkout at the tag you want (e.g., from
+  https://github.com/swiftlang/swift)
+- LLVM source at the same tag, from https://github.com/swiftlang/llvm-project
+
+Shallow sparse clones of the directories the script reads are enough:
+
+```bash
+TAG=swift-DEVELOPMENT-SNAPSHOT-2026-09-21-a
+git clone --depth 1 --branch $TAG --filter=blob:none --sparse https://github.com/swiftlang/swift.git
+git -C swift sparse-checkout set lib/Demangling include/swift test/Demangle
+git clone --depth 1 --branch $TAG --filter=blob:none --sparse https://github.com/swiftlang/llvm-project.git
+git -C llvm-project sparse-checkout set llvm/include
+```
 
 ### 1. Extract from Swift Source
 
@@ -139,19 +154,32 @@ The script can be run from any directory. It will:
 
 The script expects LLVM source at `../llvm-project/llvm` relative to the Swift source directory (the standard layout for a Swift development checkout).
 
-### 2. Rebuild
+### 2. Update the Rust layer
+
+Map any added or renamed node kinds in the crate. `src/symbol.rs` classifies
+top-level nodes, and `src/types.rs`, `src/accessor.rs` and the other modules
+interpret the rest. Keep a deprecated alias in `src/raw/mod.rs` for each renamed
+kind.
+
+### 3. Rebuild and compare
 
 ```bash
-cmake --build build
+cargo test
 ```
 
-The build includes static assertions that verify the generated `SwiftNodeKind` enum matches Swift's internal `Node::Kind` enum, so any mismatch will cause a compile error.
+The build includes static assertions that check a few key values of the
+generated `SwiftNodeKind` enum against Swift's internal `Node::Kind` enum.
+
+Review the snapshot diff in `tests/snapshots/`. Compare `demangle` output for
+real symbol sets before and after the update, and investigate any symbol that no
+longer demangles.
 
 ### Version Pinning
 
 The extracted Swift version is recorded in `vendor/VERSION`. To ensure reproducible builds:
 
-1. Check out a specific Swift release tag (e.g., `swift-6.0-RELEASE`)
+1. Check out a specific Swift tag (e.g., `swift-6.0-RELEASE` or a development
+   snapshot)
 2. Run the extraction script
 3. Commit the vendored files
 

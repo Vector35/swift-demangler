@@ -23,6 +23,7 @@ impl NodeKindExt for NodeKind {
             self,
             NodeKind::FunctionType
                 | NodeKind::NoEscapeFunctionType
+                | NodeKind::CalledOnceFunctionType
                 | NodeKind::CFunctionPointer
                 | NodeKind::ThinFunctionType
                 | NodeKind::ImplFunctionType

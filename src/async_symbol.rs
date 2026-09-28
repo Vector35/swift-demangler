@@ -55,6 +55,7 @@ impl<'ctx> AsyncSymbol<'ctx> {
             NodeKind::AsyncFunctionPointer => AsyncSymbolKind::FunctionPointer,
             NodeKind::CoroFunctionPointer => AsyncSymbolKind::CoroFunctionPointer,
             NodeKind::CoroutineContinuationPrototype => AsyncSymbolKind::ContinuationPrototype,
+            NodeKind::AsyncMainEntryPoint => AsyncSymbolKind::MainEntryPoint,
             _ => AsyncSymbolKind::Other,
         }
     }
@@ -114,6 +115,8 @@ pub enum AsyncSymbolKind {
     CoroFunctionPointer,
     /// Coroutine continuation prototype.
     ContinuationPrototype,
+    /// The async main entry point (`async_Main`).
+    MainEntryPoint,
     /// Other async-related symbol.
     Other,
 }
@@ -127,6 +130,7 @@ impl AsyncSymbolKind {
             AsyncSymbolKind::FunctionPointer => "async function pointer",
             AsyncSymbolKind::CoroFunctionPointer => "coroutine function pointer",
             AsyncSymbolKind::ContinuationPrototype => "coroutine continuation prototype",
+            AsyncSymbolKind::MainEntryPoint => "async main entry point",
             AsyncSymbolKind::Other => "async symbol",
         }
     }

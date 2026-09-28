@@ -54,6 +54,14 @@ impl<'ctx> Specialization<'ctx> {
             .and_then(|c| c.index())
     }
 
+    /// Check if this specialization only changes the function's representation
+    /// (printed as "representation changed of").
+    pub fn is_representation_changed(&self) -> bool {
+        self.raw
+            .child_of_kind(NodeKind::RepresentationChanged)
+            .is_some()
+    }
+
     /// Get the type arguments used for specialization.
     ///
     /// Returns a list of types that were substituted for generic parameters.
@@ -223,10 +231,21 @@ impl<'ctx> FunctionSignatureParam<'ctx> {
 
     /// Get all payload texts (e.g., encoding and value for ConstantPropString).
     pub fn payloads(&self) -> Vec<&'ctx str> {
+        let is_string = self.kind() == FunctionSignatureParamKind::ConstantPropString;
         self.raw
             .children()
-            .filter(|c| c.kind() == NodeKind::FunctionSignatureSpecializationParamPayload)
-            .filter_map(|c| c.text())
+            .filter_map(|c| match c.kind() {
+                NodeKind::FunctionSignatureSpecializationParamPayload => c.text(),
+                // Propagated names (closures, functions, globals, string
+                // constants) are attached as identifiers.
+                NodeKind::Identifier => c.text().map(|text| match text.strip_prefix('_') {
+                    // A leading '_' escapes a string constant that starts
+                    // with a digit or '_'.
+                    Some(rest) if is_string => rest,
+                    _ => text,
+                }),
+                _ => None,
+            })
             .collect()
     }
 
@@ -288,6 +307,12 @@ pub enum FunctionSignatureParamKind {
     InOutToOut,
     /// KeyPath constant propagation.
     ConstantPropKeyPath,
+    /// Struct constant propagation.
+    ConstantPropStruct,
+    /// The same propagated closure as an earlier argument.
+    ClosurePropPreviousArg,
+    /// Escaping closure parameter was propagated/inlined.
+    EscapingClosureProp,
     /// Unknown base kind.
     Unknown(u64),
 }
@@ -308,6 +333,9 @@ impl FunctionSignatureParamKind {
             7 => FunctionSignatureParamKind::BoxToStack,
             8 => FunctionSignatureParamKind::InOutToOut,
             9 => FunctionSignatureParamKind::ConstantPropKeyPath,
+            10 => FunctionSignatureParamKind::ConstantPropStruct,
+            11 => FunctionSignatureParamKind::ClosurePropPreviousArg,
+            12 => FunctionSignatureParamKind::EscapingClosureProp,
             _ => FunctionSignatureParamKind::Unknown(base),
         }
     }
@@ -325,6 +353,9 @@ impl FunctionSignatureParamKind {
             FunctionSignatureParamKind::BoxToStack => "box to stack",
             FunctionSignatureParamKind::InOutToOut => "inout to out",
             FunctionSignatureParamKind::ConstantPropKeyPath => "constant prop (keypath)",
+            FunctionSignatureParamKind::ConstantPropStruct => "constant prop (struct)",
+            FunctionSignatureParamKind::ClosurePropPreviousArg => "same as argument",
+            FunctionSignatureParamKind::EscapingClosureProp => "escaping closure propagated",
             FunctionSignatureParamKind::Unknown(_) => "unknown",
         }
     }

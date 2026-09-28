@@ -78,6 +78,9 @@ impl<'ctx> Metadata<'ctx> {
             NodeKind::PropertyWrapperBackingInitializer => {
                 MetadataKind::PropertyWrapperBackingInitializer
             }
+            NodeKind::PropertyWrappedFieldInitAccessor => {
+                MetadataKind::PropertyWrappedFieldInitAccessor
+            }
             NodeKind::MethodLookupFunction => MetadataKind::MethodLookupFunction,
             _ => MetadataKind::Other,
         }
@@ -205,6 +208,8 @@ pub enum MetadataKind {
     DefaultOverride,
     /// Property wrapper backing initializer.
     PropertyWrapperBackingInitializer,
+    /// Init accessor for a property-wrapped field.
+    PropertyWrappedFieldInitAccessor,
     /// Method lookup function (dynamic dispatch).
     MethodLookupFunction,
     /// Other metadata kind.
@@ -251,6 +256,9 @@ impl MetadataKind {
             MetadataKind::DefaultOverride => "default override",
             MetadataKind::PropertyWrapperBackingInitializer => {
                 "property wrapper backing initializer"
+            }
+            MetadataKind::PropertyWrappedFieldInitAccessor => {
+                "property wrapped field init accessor"
             }
             MetadataKind::MethodLookupFunction => "method lookup function",
             MetadataKind::Other => "metadata",

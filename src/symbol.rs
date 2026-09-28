@@ -510,9 +510,11 @@ impl<'ctx> Symbol<'ctx> {
             NodeKind::Getter
             | NodeKind::Setter
             | NodeKind::ModifyAccessor
-            | NodeKind::Modify2Accessor
+            | NodeKind::YieldingMutateAccessor
             | NodeKind::ReadAccessor
-            | NodeKind::Read2Accessor
+            | NodeKind::YieldingBorrowAccessor
+            | NodeKind::BorrowAccessor
+            | NodeKind::MutateAccessor
             | NodeKind::WillSet
             | NodeKind::DidSet
             | NodeKind::GlobalGetter
@@ -638,6 +640,7 @@ impl<'ctx> Symbol<'ctx> {
             | NodeKind::HasSymbolQuery
             | NodeKind::DefaultOverride
             | NodeKind::PropertyWrapperBackingInitializer
+            | NodeKind::PropertyWrappedFieldInitAccessor
             | NodeKind::MethodLookupFunction => Symbol::Metadata(Metadata::new(node)),
 
             // Default argument initializers
@@ -666,7 +669,8 @@ impl<'ctx> Symbol<'ctx> {
             | NodeKind::BoundGenericClass
             | NodeKind::BoundGenericEnum
             | NodeKind::Tuple
-            | NodeKind::BuiltinFixedArray => Symbol::Type(TypeRef::new(node)),
+            | NodeKind::BuiltinFixedArray
+            | NodeKind::BuiltinBorrow => Symbol::Type(TypeRef::new(node)),
 
             // Subscript is an accessor
             NodeKind::Subscript => {
@@ -685,7 +689,8 @@ impl<'ctx> Symbol<'ctx> {
             | NodeKind::AsyncSuspendResumePartialFunction
             | NodeKind::AsyncFunctionPointer
             | NodeKind::CoroFunctionPointer
-            | NodeKind::CoroutineContinuationPrototype => Symbol::Async(AsyncSymbol::new(node)),
+            | NodeKind::CoroutineContinuationPrototype
+            | NodeKind::AsyncMainEntryPoint => Symbol::Async(AsyncSymbol::new(node)),
 
             // Macro symbols
             NodeKind::Macro
