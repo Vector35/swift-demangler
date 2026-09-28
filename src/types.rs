@@ -415,7 +415,7 @@ impl<'ctx> TypeRef<'ctx> {
 impl std::fmt::Debug for TypeRef<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         // Just delegate to the kind's debug representation
-        self.kind().fmt(f)
+        crate::helpers::debug_nested(f, |f| self.kind().fmt(f))
     }
 }
 

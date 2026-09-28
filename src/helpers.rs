@@ -4,8 +4,41 @@
 //! - [`NodeKindExt`] trait that extends [`NodeKind`] with classification predicates
 //! - [`NodeExt`] trait that extends [`Node`] with utility methods
 
+use std::cell::Cell;
+
 use crate::raw::{Node, NodeKind};
 use crate::types::{FunctionType, GenericRequirement, GenericSignature, TypeRef};
+
+/// How deeply `Debug` output for symbols, types and nodes nests before the
+/// rest is elided as `..`. This is well above the nesting of any real symbol,
+/// and keeps stack use well below thread stack limits.
+pub(crate) const MAX_DEBUG_NESTING: usize = 128;
+
+/// Formats `body` one nesting level deeper, or writes `..` once
+/// [`MAX_DEBUG_NESTING`] levels are in use.
+pub(crate) fn debug_nested(
+    f: &mut std::fmt::Formatter<'_>,
+    body: impl FnOnce(&mut std::fmt::Formatter<'_>) -> std::fmt::Result,
+) -> std::fmt::Result {
+    thread_local! {
+        static NESTING: Cell<usize> = const { Cell::new(0) };
+    }
+
+    struct Restore(usize);
+    impl Drop for Restore {
+        fn drop(&mut self) {
+            NESTING.with(|n| n.set(self.0));
+        }
+    }
+
+    let depth = NESTING.with(Cell::get);
+    if depth >= MAX_DEBUG_NESTING {
+        return f.write_str("..");
+    }
+    NESTING.with(|n| n.set(depth + 1));
+    let _restore = Restore(depth);
+    body(f)
+}
 
 /// Extension trait adding classification methods to [`NodeKind`].
 pub(crate) trait NodeKindExt {

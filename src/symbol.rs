@@ -29,7 +29,6 @@ use crate::witness_table::WitnessTable;
 /// `Symbol` implements [`Drop`] to free long chains of wrapper symbols without
 /// recursion, so nested symbols can't be moved out of it. Match on a reference
 /// instead.
-#[derive(Debug)]
 pub enum Symbol<'ctx> {
     /// A function symbol.
     Function(Function<'ctx>),
@@ -1036,6 +1035,35 @@ impl Drop for Symbol<'_> {
         while let Some(mut symbol) = pending.pop() {
             pending.extend(detach(&mut symbol));
         }
+    }
+}
+
+impl std::fmt::Debug for Symbol<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        crate::helpers::debug_nested(f, |f| match self {
+            Symbol::Function(x) => f.debug_tuple("Function").field(x).finish(),
+            Symbol::Constructor(x) => f.debug_tuple("Constructor").field(x).finish(),
+            Symbol::Destructor(x) => f.debug_tuple("Destructor").field(x).finish(),
+            Symbol::EnumCase(x) => f.debug_tuple("EnumCase").field(x).finish(),
+            Symbol::Accessor(x) => f.debug_tuple("Accessor").field(x).finish(),
+            Symbol::Variable(x) => f.debug_tuple("Variable").field(x).finish(),
+            Symbol::Closure(x) => f.debug_tuple("Closure").field(x).finish(),
+            Symbol::Thunk(x) => f.debug_tuple("Thunk").field(x).finish(),
+            Symbol::Specialization(x) => f.debug_tuple("Specialization").field(x).finish(),
+            Symbol::WitnessTable(x) => f.debug_tuple("WitnessTable").field(x).finish(),
+            Symbol::Descriptor(x) => f.debug_tuple("Descriptor").field(x).finish(),
+            Symbol::Metadata(x) => f.debug_tuple("Metadata").field(x).finish(),
+            Symbol::Type(x) => f.debug_tuple("Type").field(x).finish(),
+            Symbol::Attributed(x) => f.debug_tuple("Attributed").field(x).finish(),
+            Symbol::DefaultArgument(x) => f.debug_tuple("DefaultArgument").field(x).finish(),
+            Symbol::Outlined(x) => f.debug_tuple("Outlined").field(x).finish(),
+            Symbol::Async(x) => f.debug_tuple("Async").field(x).finish(),
+            Symbol::Macro(x) => f.debug_tuple("Macro").field(x).finish(),
+            Symbol::AutoDiff(x) => f.debug_tuple("AutoDiff").field(x).finish(),
+            Symbol::Identifier(x) => f.debug_tuple("Identifier").field(x).finish(),
+            Symbol::Suffixed(x) => f.debug_tuple("Suffixed").field(x).finish(),
+            Symbol::Other(x) => f.debug_tuple("Other").field(x).finish(),
+        })
     }
 }
 

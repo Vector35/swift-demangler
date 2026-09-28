@@ -21,7 +21,7 @@ fn on_small_stack<T: Send + 'static>(f: impl FnOnce() -> T + Send + 'static) -> 
         .unwrap()
 }
 
-/// Parse, print and drop `mangled` through every public entry point.
+/// Parse, print, format and drop `mangled` through every public entry point.
 fn exercise(mangled: &str) -> Option<String> {
     let ctx = Context::new();
     let demangled = demangle(mangled);
@@ -33,6 +33,8 @@ fn exercise(mangled: &str) -> Option<String> {
     );
     if let Some(symbol) = &symbol {
         symbol.display();
+        let _ = format!("{symbol:?}");
+        let _ = format!("{symbol:#?}");
     }
     demangled
 }

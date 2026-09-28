@@ -227,11 +227,24 @@ impl<'ctx> Node<'ctx> {
 }
 
 impl fmt::Debug for Node<'_> {
+    /// Deeply nested children are elided as `..` to bound stack use.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        crate::helpers::debug_nested(f, |f| self.fmt_node(f))
+    }
+}
+
+impl Node<'_> {
+    fn fmt_node(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let children: Vec<_> = self.children().collect();
         if f.alternate() && children.is_empty() {
-            #[allow(clippy::recursive_format_impl)]
-            return write!(f, "{self:?}");
+            // Print leaves on one line by formatting them without the alternate flag.
+            struct Leaf<'a, 'ctx>(&'a Node<'ctx>);
+            impl fmt::Debug for Leaf<'_, '_> {
+                fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                    self.0.fmt_node(f)
+                }
+            }
+            return write!(f, "{:?}", Leaf(self));
         }
 
         let mut s = f.debug_struct("Node");
