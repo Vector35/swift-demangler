@@ -17,6 +17,13 @@ file(GLOB SWIFT_DEMANGLING_SOURCES "${SWIFT_DEMANGLING_DIR}/lib/*.cpp")
 list(FILTER SWIFT_DEMANGLING_SOURCES EXCLUDE REGEX ".*CrashReporter\\.cpp$")
 
 add_library(swiftDemanglingInternal OBJECT ${SWIFT_DEMANGLING_SOURCES})
+if(MSVC)
+    # MSVC doesn't share stack slots between the temporaries that inlining
+    # adds to NodePrinter::print, which then needs about 2.5 KiB per level
+    # instead of 0.5.
+    set_source_files_properties(${SWIFT_DEMANGLING_DIR}/lib/NodePrinter.cpp
+        PROPERTIES COMPILE_OPTIONS /Ob0)
+endif()
 set_target_properties(swiftDemanglingInternal PROPERTIES CXX_VISIBILITY_PRESET hidden VISIBILITY_INLINES_HIDDEN ON)
 target_include_directories(swiftDemanglingInternal PRIVATE ${SWIFT_DEMANGLING_DIR}/include)
 target_compile_definitions(swiftDemanglingInternal PRIVATE

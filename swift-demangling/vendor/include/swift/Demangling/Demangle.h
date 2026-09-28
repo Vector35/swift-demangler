@@ -867,6 +867,14 @@ public:
     Stream.append(Value.data(), Value.size());
     return *this;
   }
+
+  // VECTOR-35: Local patch, not in upstream Swift. On Windows x64 each
+  // StringRef argument is copied to its own stack slot, which made
+  // NodePrinter::print's frame about 8 KiB.
+  DemanglerPrinter &operator<<(const char *Value) & {
+    Stream.append(Value);
+    return *this;
+  }
   
   DemanglerPrinter &operator<<(char c) & {
     Stream.push_back(c);

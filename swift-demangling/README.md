@@ -119,8 +119,13 @@ The included `swift-demangle` CLI demonstrates the API:
 ## Updating Vendored Code
 
 The library vendors Swift demangling code and required LLVM headers in
-`vendor/`. Don't patch the vendored files. Work around upstream problems in
-`src/` or the Rust crate instead.
+`vendor/`. Work around upstream problems in `src/` or the Rust crate rather than
+by patching the vendored files, unless a patch is the only practical fix. Mark
+each local patch with a `VECTOR-35` comment, and list them with
+`grep -rn VECTOR-35 vendor/`. The only one at present is the `const char *`
+overload of `DemanglerPrinter::operator<<` in
+`include/swift/Demangling/Demangle.h`, which keeps `NodePrinter::print`'s stack
+use down on Windows. Reapply it after extracting.
 
 To update to a newer Swift version, you'll need:
 
